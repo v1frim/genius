@@ -361,7 +361,8 @@ table.results tr:last-child td { border-bottom: none; }
   padding: 0;
 }
 .schulte-cell:hover { background: #fffef2; }
-.schulte-cell.found { background: var(--panel2); color: transparent; cursor: default; }
+.schulte-cell.found { background: #b3a4c8; color: #756a8d; cursor: default; }
+.schulte-cell.found:hover { background: #b3a4c8; }
 .schulte-cell.flash-err { background: var(--danger); color: #fff; }
 .schulte-grid .center-dot {
   position: absolute;
@@ -388,7 +389,9 @@ table.results tr:last-child td { border-bottom: none; }
   text-align: center;
   padding: 20px;
 }
-.schulte-side { width: 300px; flex-shrink: 0; }
+.schulte-side { width: 320px; flex-shrink: 0; }
+.schulte-side table.results { font-size: 0.82rem; }
+.schulte-side table.results th, .schulte-side table.results td { padding: 5px 6px; white-space: nowrap; }
 @media (max-width: 860px) { .schulte-side { width: 100%; } }
 
 .timer-big { font-size: 2rem; font-weight: 900; font-variant-numeric: tabular-nums; }

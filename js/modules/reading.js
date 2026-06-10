@@ -23,7 +23,8 @@ App.modules.reading = (function () {
     let chunk = App.store.pref("rsvp.chunk", 1);
     let accel = App.store.pref("rsvp.accel", 0); // +сл/хв за хвилину
     let fontPx = App.store.pref("rsvp.font", 46);
-    let sourceIdx = App.store.pref("rsvp.source", 0); // індекс тексту або -1 (свій)
+    let sourceIdx = App.store.pref("rsvp.source", 0); // індекс тексту, -1 (свій), -2 (Вікіпедія)
+    let orpOn = App.store.pref("rsvp.orp", false);
 
     let tokens = [];
     let idx = 0;
@@ -31,6 +32,8 @@ App.modules.reading = (function () {
     let timeoutId = null;
     let activeMs = 0;
     let startWpm = wpm;
+    let wikiLoading = false;
+    let disposed = false;
 
     const wordEl = h("div", { class: "rsvp-word", style: "font-size:" + fontPx + "px;display:flex;align-items:baseline;width:100%" });
     const stage = h("div", { class: "rsvp-stage" }, wordEl);
@@ -50,13 +53,17 @@ App.modules.reading = (function () {
     App.data.readingTexts.forEach(function (t, i) {
       sourceSel.append(h("option", { value: String(i) }, t.title));
     });
+    sourceSel.append(h("option", { value: "-2" }, "🎲 Випадкова стаття (Вікіпедія)"));
     sourceSel.append(h("option", { value: "-1" }, "✍️ Свій текст"));
     sourceSel.value = String(sourceIdx);
     sourceSel.addEventListener("change", function () {
       sourceIdx = parseInt(sourceSel.value, 10);
       App.store.setPref("rsvp.source", sourceIdx);
       customArea.style.display = sourceIdx === -1 ? "" : "none";
+      wikiInfo.style.display = "none";
     });
+
+    const wikiInfo = h("div", { class: "tiny muted", style: "margin-top:8px;display:none" });
 
     function currentText() {
       if (sourceIdx === -1) return customArea.value.trim();
@@ -112,7 +119,7 @@ App.modules.reading = (function () {
     function showChunk() {
       const slice = tokens.slice(idx, idx + chunk);
       wordEl.innerHTML = "";
-      if (chunk === 1 && slice.length === 1) {
+      if (chunk === 1 && orpOn && slice.length === 1) {
         const w = slice[0];
         const oi = Math.min(orpIndex(w.length), w.length - 1);
         wordEl.append(
@@ -150,9 +157,8 @@ App.modules.reading = (function () {
       timeoutId = setTimeout(tick, d);
     }
 
-    function start() {
-      const text = currentText();
-      if (sourceIdx === -1) App.store.setPref("rsvp.customText", customArea.value);
+    function beginRun(text) {
+      if (disposed) return;
       tokens = words(text);
       if (tokens.length < 5) { App.ui.toast("Текст закороткий", "info"); return; }
       idx = 0; activeMs = 0; running = true; paused = false; startWpm = wpm;
@@ -160,6 +166,50 @@ App.modules.reading = (function () {
       pauseBtn.style.display = "";
       stopBtn.style.display = "";
       tick();
+    }
+
+    function start() {
+      if (running) return;
+      if (sourceIdx === -2) { startWiki(); return; }
+      wikiInfo.style.display = "none";
+      if (sourceIdx === -1) App.store.setPref("rsvp.customText", customArea.value);
+      beginRun(currentText());
+    }
+
+    /* нескінченне джерело текстів: випадкові статті української Вікіпедії */
+    async function startWiki() {
+      if (wikiLoading) return;
+      wikiLoading = true;
+      startBtn.disabled = true;
+      startBtn.textContent = "ЗАВАНТАЖУЮ…";
+      try {
+        const parts = [];
+        const titles = [];
+        let total = 0;
+        for (let i = 0; i < 7 && total < 220; i++) {
+          const resp = await fetch("https://uk.wikipedia.org/api/rest_v1/page/random/summary", {
+            headers: { Accept: "application/json" },
+          });
+          if (!resp.ok) throw new Error("HTTP " + resp.status);
+          const j = await resp.json();
+          const extract = (j.extract || "").trim();
+          const wc = extract ? extract.split(/\s+/).length : 0;
+          if (wc < 20) continue; // пропускаємо статті-заглушки
+          titles.push(j.title);
+          parts.push(extract);
+          total += wc;
+        }
+        if (!parts.length) throw new Error("порожні статті");
+        wikiInfo.textContent = "📚 Статті: " + titles.join(" · ");
+        wikiInfo.style.display = "";
+        beginRun(parts.join(" "));
+      } catch (e) {
+        App.ui.toast("Не вдалося отримати статтю з Вікіпедії — перевір інтернет", "info");
+      } finally {
+        wikiLoading = false;
+        startBtn.disabled = false;
+        startBtn.textContent = "СТАРТ";
+      }
     }
 
     function pauseToggle() {
@@ -221,6 +271,15 @@ App.modules.reading = (function () {
     wordEl.append(h("span", { style: "flex:1;text-align:center;color:var(--muted);font-size:1.2rem" },
       "Натисни СТАРТ — слова з'являтимуться тут"));
 
+    const orpCb = h("input", {
+      type: "checkbox",
+      onchange: function () {
+        orpOn = orpCb.checked;
+        App.store.setPref("rsvp.orp", orpOn);
+      },
+    });
+    orpCb.checked = orpOn;
+
     root.append(
       h("div", { class: "card" },
         h("div", { class: "row", style: "gap:14px" },
@@ -230,14 +289,20 @@ App.modules.reading = (function () {
           h("div", { class: "field", style: "min-width:130px" }, h("span", null, "Розмір шрифту"), fontRange)),
         customArea,
         h("div", { class: "row", style: "margin-top:12px" },
-          h("span", { class: "muted", style: "font-weight:800" }, "Темп:"), wpmRange, wpmVal)),
+          h("span", { class: "muted", style: "font-weight:800" }, "Темп:"), wpmRange, wpmVal,
+          h("label", {
+            class: "opt",
+            title: "Слово зсувається так, щоб червона літера завжди була в одній точці екрана — око взагалі не рухається. Корисно на високих темпах.",
+          }, orpCb, "Літера-якір (ORP)")),
+        wikiInfo),
       h("div", { class: "card" },
         stage, prog, statusEl,
         h("div", { class: "row center", style: "margin-top:16px" }, startBtn, pauseBtn, stopBtn),
         h("div", { class: "tiny muted", style: "margin-top:10px;text-align:center" },
-          "Пробіл — пауза · Esc — стоп · ↑/↓ — темп на льоту. Тренуйся на +30% від комфортного темпу.")));
+          "Пробіл — пауза · Esc — стоп · ↑/↓ — темп на льоту. Тренуйся на +30% від комфортного темпу. «Літера-якір» тримає погляд в одній точці — спробуй, коли розженешся.")));
 
     return function cleanup() {
+      disposed = true;
       if (timeoutId) clearTimeout(timeoutId);
       running = false;
       document.removeEventListener("keydown", onKey);
