@@ -277,6 +277,12 @@ App.modules.memory = (function () {
     }
 
     build();
+    // Space тисне видиму зелену кнопку (СТАРТ / ЩЕ РАЗ); під час вводу фокус у полі — обробник не спрацює
+    App.primaryAction = function () {
+      const btn = root.querySelector("button.btn.green.big");
+      if (btn && btn.offsetParent !== null) { btn.click(); return true; }
+      return false;
+    };
     return function cleanup() { if (innerCleanup) innerCleanup(); };
   }
 

@@ -282,6 +282,8 @@ App.modules.arithmetic = (function () {
     renderIdle();
     renderRecords();
 
+    App.primaryAction = function () { if (!running) { start(); return true; } return false; };
+
     return function cleanup() { stopTimer(); running = false; };
   }
 
