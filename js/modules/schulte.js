@@ -46,6 +46,9 @@ App.modules.schulte = (function () {
     return { text: "Повільно — тренуйся щодня", cls: "danger-text" };
   }
 
+  /* око-якір для центру таблиці (колір як у цифр) */
+  const EYE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#4a4458" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3.2" fill="#4a4458" stroke="none"/></svg>';
+
   function render(root) {
     let size = App.store.pref("schulte.size", 5);
     let opts = Object.assign(
@@ -53,6 +56,7 @@ App.modules.schulte = (function () {
       App.store.pref("schulte.opts", {}));
 
     let cells = [];      // {num, btn}
+    let numberCount = 0; // скільки клітинок із числами (на непарних з оком — на 1 менше)
     let seq = [];        // послідовність чисел, які треба натискати
     let seqIdx = 0;
     let errors = 0;
@@ -84,15 +88,29 @@ App.modules.schulte = (function () {
     function buildGrid() {
       grid.innerHTML = "";
       grid.style.gridTemplateColumns = "repeat(" + size + ", 1fr)";
-      const nums = App.ui.shuffle(Array.from({ length: size * size }, function (_, i) { return i + 1; }));
-      cells = nums.map(function (num) {
+      const total = size * size;
+      const odd = total % 2 === 1;
+      const centerIdx = (total - 1) / 2;
+      const eyeInCell = opts.dot && odd; // на непарних таблицях око займає центральну клітинку
+      numberCount = eyeInCell ? total - 1 : total;
+      const nums = App.ui.shuffle(Array.from({ length: numberCount }, function (_, i) { return i + 1; }));
+      cells = [];
+      let np = 0;
+      for (let i = 0; i < total; i++) {
+        if (eyeInCell && i === centerIdx) {
+          const eye = h("div", { class: "schulte-cell eye-cell", "aria-hidden": "true", html: EYE_SVG });
+          grid.append(eye);
+          continue;
+        }
+        const num = nums[np++];
         const btn = h("button", { class: "schulte-cell" }, num);
         const cell = { num: num, btn: btn, found: false };
         btn.addEventListener("click", function () { onCell(cell); });
         grid.append(btn);
-        return cell;
-      });
-      if (opts.dot) grid.append(h("div", { class: "center-mark" }));
+        cells.push(cell);
+      }
+      // на парних таблицях справжнього центру-клітинки немає — делікатне око-накладка
+      if (opts.dot && !odd) grid.append(h("div", { class: "center-eye", html: EYE_SVG }));
     }
 
     function reshuffleRemaining() {
@@ -113,7 +131,7 @@ App.modules.schulte = (function () {
     function start() {
       stopTimer();
       buildGrid();
-      const all = Array.from({ length: size * size }, function (_, i) { return i + 1; });
+      const all = Array.from({ length: numberCount }, function (_, i) { return i + 1; });
       seq = opts.reverse ? all.slice().reverse() : all;
       seqIdx = 0;
       errors = 0;
@@ -232,7 +250,7 @@ App.modules.schulte = (function () {
           optToggle("shuffle", "Перемішувати після кліку", "Хардкор: цифри міняються місцями після кожного знайденого числа"),
           optToggle("reverse", "Зворотний порядок", "Шукай від найбільшого до 1"),
           optToggle("hideFound", "Затемнювати знайдені"),
-          optToggle("dot", "Мітка в центрі", "Тримай погляд у центрі, шукай периферійним зором"),
+          optToggle("dot", "Око в центрі", "Дивись на око в центрі, числа шукай периферійним зором"),
           optToggle("hint", "Показувати наступне число"))));
 
       const best = bestFor(size, modeKey(opts));
