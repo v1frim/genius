@@ -17,6 +17,20 @@ App.modules.schulte = (function () {
     return parts.join(" + ");
   }
 
+  /* компактна позначка режиму для таблиці результатів */
+  function modeShort(mode) {
+    if (!mode) return "клас.";
+    return (mode.indexOf("s") >= 0 ? "🔀" : "") + (mode.indexOf("r") >= 0 ? "↩" : "");
+  }
+
+  /* орієнтири часу під конкретний розмір (ті ж пороги, що й в evaluate) */
+  function benchmarkText(size) {
+    const n = size * size;
+    return "Орієнтир для " + size + "×" + size + ": < " + Math.round(n * 0.8) +
+      " с — феноменально, < " + Math.round(n * 1.2) + " с — відмінно, < " +
+      Math.round(n * 1.8) + " с — добре. Дивись лише в центр таблиці!";
+  }
+
   /* оцінка часу для квадрата size×size */
   function evaluate(size, ms) {
     const n = size * size;
@@ -198,7 +212,7 @@ App.modules.schulte = (function () {
         h("div", { style: "display:flex;flex-direction:column;gap:9px;margin-top:14px" },
           optToggle("shuffle", "Перемішувати після кліку", "Хардкор: цифри міняються місцями після кожного знайденого числа"),
           optToggle("reverse", "Зворотний порядок", "Шукай від найбільшого до 1"),
-          optToggle("hideFound", "Ховати знайдені"),
+          optToggle("hideFound", "Затемнювати знайдені"),
           optToggle("dot", "Точка в центрі", "Тримай погляд у центрі, шукай периферійним зором"),
           optToggle("hint", "Показувати наступне число"))));
 
@@ -209,7 +223,7 @@ App.modules.schulte = (function () {
         recent.map(function (r) {
           return h("tr", null,
             h("td", null, r.size + "×" + r.size),
-            h("td", null, modeLabel(r.mode || "")),
+            h("td", { title: modeLabel(r.mode || "") }, modeShort(r.mode || "")),
             h("td", null, App.ui.fmtMs(r.timeMs)),
             h("td", null, String(r.errors)),
             h("td", null, App.ui.fmtDate(r.date)));
@@ -221,8 +235,7 @@ App.modules.schulte = (function () {
           h("div", { class: "muted", style: "font-weight:700" }, size + "×" + size + " · " + modeLabel(modeKey(opts))),
           h("div", { class: "yellow", style: "font-weight:900;font-size:1.1rem" }, best ? App.ui.fmtMs(best) : "—")),
         recent.length ? tbl : h("div", { class: "muted small" }, "Зіграй першу таблицю — результати з'являться тут."),
-        h("div", { class: "tiny muted", style: "margin-top:10px" },
-          "Орієнтир для 5×5: < 20 с — феноменально, < 30 с — відмінно, < 45 с — добре. Дивись лише в центр таблиці!")));
+        h("div", { class: "tiny muted", style: "margin-top:10px" }, benchmarkText(size))));
     }
 
     function showIdleOverlay() {
