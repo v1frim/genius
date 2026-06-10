@@ -207,6 +207,13 @@ label.opt:hover { color: var(--text); }
 .yellow { color: var(--yellow); }
 .danger-text { color: var(--danger); }
 
+/* 5 рівнів оцінки (Шульте, арифметика тощо) — усі відтінки різні */
+.tier-elite { color: #38e0c8; } /* бірюзовий — феноменально */
+.tier-great { color: #8bc34a; } /* зелений — відмінно */
+.tier-good  { color: #ffd24a; } /* жовтий — добре */
+.tier-mid   { color: #ff9f43; } /* помаранчевий — середньо */
+.tier-slow  { color: #ff6b78; } /* червоний — повільно */
+
 .progress {
   height: 12px;
   border-radius: 999px;
