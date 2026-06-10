@@ -28,10 +28,11 @@ App.modules.schulte = (function () {
     const n = size * size;
     return h("div", { class: "tiny", style: "margin-top:10px;line-height:1.9" },
       h("div", { class: "muted", style: "font-weight:800" }, "Орієнтир для " + size + "×" + size + ":"),
-      h("div", { class: "accent" }, "🏆 < " + Math.round(n * 0.8) + " с — феноменально"),
-      h("div", { class: "accent" }, "🔥 < " + Math.round(n * 1.2) + " с — відмінно"),
-      h("div", { class: "yellow" }, "👍 < " + Math.round(n * 1.8) + " с — добре"),
-      h("div", { class: "muted" }, "повільніше — тренуйся щодня"),
+      h("div", { class: "tier-elite" }, "🏆 < " + Math.round(n * 0.8) + " с — феноменально"),
+      h("div", { class: "tier-great" }, "🔥 < " + Math.round(n * 1.2) + " с — відмінно"),
+      h("div", { class: "tier-good" }, "👍 < " + Math.round(n * 1.8) + " с — добре"),
+      h("div", { class: "tier-mid" }, "⏳ < " + Math.round(n * 2.6) + " с — середньо"),
+      h("div", { class: "tier-slow" }, "повільніше — тренуйся щодня"),
       h("div", { class: "muted", style: "margin-top:4px" }, "Дивись лише в центр таблиці!"));
   }
 
@@ -39,11 +40,11 @@ App.modules.schulte = (function () {
   function evaluate(size, ms) {
     const n = size * size;
     const s = ms / 1000;
-    if (s <= n * 0.8) return { text: "Феноменально! 🏆", cls: "accent" };
-    if (s <= n * 1.2) return { text: "Відмінно! 🔥", cls: "accent" };
-    if (s <= n * 1.8) return { text: "Добре 👍", cls: "yellow" };
-    if (s <= n * 2.6) return { text: "Середньо — є куди рости", cls: "muted" };
-    return { text: "Повільно — тренуйся щодня", cls: "danger-text" };
+    if (s <= n * 0.8) return { text: "Феноменально! 🏆", cls: "tier-elite" };
+    if (s <= n * 1.2) return { text: "Відмінно! 🔥", cls: "tier-great" };
+    if (s <= n * 1.8) return { text: "Добре 👍", cls: "tier-good" };
+    if (s <= n * 2.6) return { text: "Середньо — є куди рости", cls: "tier-mid" };
+    return { text: "Повільно — тренуйся щодня", cls: "tier-slow" };
   }
 
   /* око-якір для центру таблиці (колір як у цифр) */

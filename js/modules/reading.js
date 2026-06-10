@@ -47,6 +47,11 @@ App.modules.reading = (function () {
     return [String(a), String(b)];
   }
 
+  function clip(s, max) {
+    s = s.trim();
+    return s.length <= max ? s : s.slice(0, max).trim() + "…";
+  }
+
   function clipAround(s, max) {
     if (s.length <= max) return s;
     const i = Math.max(0, s.indexOf("___"));
@@ -54,35 +59,48 @@ App.modules.reading = (function () {
     return (start > 0 ? "…" : "") + s.slice(start, start + max).trim() + "…";
   }
 
+  function sentences(text) {
+    return (text.match(/[^.!?…]+[.!?…]+/g) || [])
+      .map(function (s) { return s.trim(); })
+      .filter(function (s) { return s.length >= 35 && s.length <= 170 && /\s/.test(s); });
+  }
+
   function buildQuiz(read) {
     const qs = [];
     const textLower = read.text.toLowerCase();
+    const dText = read.distractorText || "";
 
-    // 1) пізнавання заголовка серед прочитаних
-    if (read.titles.length >= 1 && read.distractorTitles.length >= 2) {
+    // пізнавання заголовка (лише для Вікіпедії)
+    if (read.titles && read.titles.length >= 1 && read.distractorTitles && read.distractorTitles.length >= 2) {
       qs.push(mkQuestion("Стаття з яким заголовком була серед прочитаних?",
         App.ui.rnd(read.titles), read.distractorTitles.slice(0, 2)));
     }
 
-    // 2) число з тексту (пропуск)
-    const sents = read.text.match(/[^.!?]+[.!?]+/g) || [];
-    const numSents = sents.filter(function (s) { return /\d{2,4}/.test(s) && s.trim().length >= 30; });
+    // яке речення було в тексті (працює і для прози)
+    const mine = App.ui.shuffle(sentences(read.text));
+    const others = App.ui.shuffle(sentences(dText));
+    if (mine.length && others.length >= 2) {
+      qs.push(mkQuestion("Яке речення було в тексті?",
+        clip(mine[0], 145), [clip(others[0], 145), clip(others[1], 145)]));
+    }
+
+    // число з тексту (пропуск) — якщо є
+    const numSents = sentences(read.text).filter(function (s) { return /\d{2,4}/.test(s); });
     if (numSents.length) {
-      const s = App.ui.rnd(numSents).trim();
+      const s = App.ui.rnd(numSents);
       const num = s.match(/\d{2,4}/)[0];
       const n = parseInt(num, 10);
-      const masked = s.replace(num, "___");
-      qs.push(mkQuestion("Яке число пропущено: «" + clipAround(masked, 150) + "»",
+      qs.push(mkQuestion("Яке число пропущено: «" + clipAround(s.replace(num, "___"), 150) + "»",
         String(n), numDistractors(n)));
     }
 
-    // 3) слово, що траплялося в тексті
+    // слово, що траплялося в тексті
     const rare = rareWords(read.text);
-    const dRare = App.ui.shuffle(rareWords(read.distractorText)).filter(function (w) {
+    const dRare = App.ui.shuffle(rareWords(dText)).filter(function (w) {
       return textLower.indexOf(w) < 0;
     });
     if (rare.length && dRare.length >= 2) {
-      qs.push(mkQuestion("Яке з цих слів траплялося в тексті?",
+      qs.push(mkQuestion("Яке слово траплялося в тексті?",
         App.ui.rnd(rare), dRare.slice(0, 2)));
     }
 
@@ -105,6 +123,7 @@ App.modules.reading = (function () {
     let orpOn = App.store.pref("rsvp.orp", false);
     let lenId = App.store.pref("rsvp.len", "m");
     let quizOn = App.store.pref("rsvp.quiz", true);
+    let src = App.store.pref("rsvp.src", "prose"); // "prose" | "wiki"
 
     let tokens = [];
     let idx = 0;
@@ -157,6 +176,20 @@ App.modules.reading = (function () {
       }, l.label));
     });
 
+    const srcChips = h("div", { class: "row" });
+    [{ id: "prose", label: "📖 Художні" }, { id: "wiki", label: "🎲 Вікіпедія" }].forEach(function (s) {
+      srcChips.append(h("button", {
+        class: "chip" + (s.id === src ? " active" : ""),
+        title: s.id === "prose" ? "Уривки художньої прози — плавний текст без імен і дат" : "Випадкові статті Вікіпедії — більше фактів, імен і дат",
+        onclick: function () {
+          src = s.id; App.store.setPref("rsvp.src", src);
+          Array.prototype.forEach.call(srcChips.children, function (el, i) {
+            el.classList.toggle("active", (i === 0 ? "prose" : "wiki") === src);
+          });
+        },
+      }, s.label));
+    });
+
     const chunkChips = h("div", { class: "row" });
     [1, 2, 3].forEach(function (c) {
       const chip = h("button", {
@@ -195,7 +228,7 @@ App.modules.reading = (function () {
       wordEl.append(h("span", { style: "flex:1;text-align:center;color:var(--muted)" }, "приклад"));
       statusEl.innerHTML = "";
       statusEl.append(
-        h("span", null, "Натисни СТАРТ — текст приїде з Вікіпедії"),
+        h("span", null, "Натисни СТАРТ — текст приїде сам"),
         h("span", null, "слово вище показує обраний розмір шрифту"));
     }
 
@@ -255,7 +288,24 @@ App.modules.reading = (function () {
       if (running) return;
       quizBox.innerHTML = "";
       wikiInfo.style.display = "none";
-      startWiki();
+      if (src === "wiki") startWiki();
+      else startProse();
+    }
+
+    /* художні уривки: випадкова стрічка з кількох уривків до потрібної довжини */
+    function startProse() {
+      const def = lenDef();
+      const pool = App.ui.shuffle(App.data.proseExcerpts);
+      const parts = [];
+      let total = 0, i = 0;
+      while (i < pool.length && total < def.words) {
+        parts.push(pool[i]);
+        total += pool[i].split(/\s+/).length;
+        i++;
+      }
+      const distract = pool.slice(i, i + 5); // невикористані уривки — на дистрактори для питань
+      lastRead = { titles: [], text: parts.join(" "), distractorTitles: [], distractorText: distract.join(" ") };
+      beginRun(lastRead.text);
     }
 
     function fetchRandomSummaries(n) {
@@ -462,6 +512,7 @@ App.modules.reading = (function () {
     root.append(
       h("div", { class: "card" },
         h("div", { class: "row", style: "gap:14px" },
+          h("div", { class: "field" }, h("span", null, "Джерело"), srcChips),
           h("div", { class: "field" }, h("span", null, "Довжина тексту"), lenChips),
           h("div", { class: "field" }, h("span", null, "Слів за раз"), chunkChips),
           h("div", { class: "field" }, h("span", null, "Розгін"), accelSel),
@@ -482,7 +533,7 @@ App.modules.reading = (function () {
         h("div", { class: "row center", style: "margin-top:16px" }, startBtn, pauseBtn, stopBtn),
         quizBox,
         h("div", { class: "tiny muted", style: "margin-top:10px;text-align:center" },
-          "Тексти — випадкові статті української Вікіпедії: щоразу щось нове. Пробіл — пауза · Esc — стоп · ↑/↓ — темп на льоту.")));
+          "«Художні» — плавні уривки прози (без імен і дат); «Вікіпедія» — випадкові статті з фактами. Пробіл — пауза · Esc — стоп · ↑/↓ — темп на льоту.")));
 
     showIdle();
 
