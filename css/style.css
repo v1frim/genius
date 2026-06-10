@@ -364,16 +364,15 @@ table.results tr:last-child td { border-bottom: none; }
 .schulte-cell.found { background: #b3a4c8; color: #756a8d; cursor: default; }
 .schulte-cell.found:hover { background: #b3a4c8; }
 .schulte-cell.flash-err { background: var(--danger); color: #fff; }
-.schulte-grid .center-dot {
+.schulte-grid .center-mark {
   position: absolute;
   left: 50%; top: 50%;
-  width: 9px; height: 9px;
-  margin: -4.5px 0 0 -4.5px;
-  background: var(--danger);
+  width: 18px; height: 18px;
+  margin: -9px 0 0 -9px;
+  border: 2px dashed rgba(74, 68, 88, 0.4);
   border-radius: 50%;
   pointer-events: none;
   z-index: 2;
-  box-shadow: 0 0 0 3px rgba(255, 92, 108, 0.3);
 }
 .schulte-overlay {
   position: absolute;
@@ -446,6 +445,8 @@ table.results tr:last-child td { border-bottom: none; }
 }
 .q-option:hover { border-color: var(--primary); }
 .q-option.sel { border-color: var(--accent); background: rgba(139, 195, 74, 0.12); }
+.q-option.ok { border-color: var(--accent); background: rgba(139, 195, 74, 0.18); }
+.q-option.bad { border-color: var(--danger); background: rgba(255, 92, 108, 0.14); }
 
 /* ---------- typing ---------- */
 

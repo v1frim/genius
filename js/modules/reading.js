@@ -1,4 +1,4 @@
-/* Швидкочитання: RSVP-тренажер + тест швидкості з питаннями на розуміння */
+/* Швидкочитання: RSVP на випадкових статтях Вікіпедії + тест швидкості з питаннями */
 window.App = window.App || {};
 App.modules = App.modules || {};
 
@@ -16,15 +16,95 @@ App.modules.reading = (function () {
     return 4;
   }
 
+  /* ---------- генерація питань із прочитаного ---------- */
+
+  function mkQuestion(q, correct, distractors) {
+    const options = App.ui.shuffle([correct].concat(distractors));
+    return { q: q, options: options, correct: options.indexOf(correct) };
+  }
+
+  function rareWords(text) {
+    if (!text) return [];
+    const seen = {};
+    const out = [];
+    (text.toLowerCase().match(/[а-яґєії']{9,}/g) || []).forEach(function (w) {
+      if (!seen[w]) { seen[w] = true; out.push(w); }
+    });
+    return out;
+  }
+
+  function numDistractors(n) {
+    let a, b;
+    if (n >= 1000 && n <= 2100) { // схоже на рік
+      a = n + App.ui.rndInt(1, 25);
+      b = n - App.ui.rndInt(1, 25);
+    } else {
+      const d = Math.max(1, Math.round(n * 0.2));
+      a = n + App.ui.rndInt(1, d + 2);
+      b = Math.max(0, n - App.ui.rndInt(1, d + 2));
+    }
+    if (b === n || b === a) b = a + App.ui.rndInt(1, 9);
+    return [String(a), String(b)];
+  }
+
+  function clipAround(s, max) {
+    if (s.length <= max) return s;
+    const i = Math.max(0, s.indexOf("___"));
+    const start = Math.max(0, Math.min(i - Math.floor(max / 2), s.length - max));
+    return (start > 0 ? "…" : "") + s.slice(start, start + max).trim() + "…";
+  }
+
+  function buildQuiz(read) {
+    const qs = [];
+    const textLower = read.text.toLowerCase();
+
+    // 1) пізнавання заголовка серед прочитаних
+    if (read.titles.length >= 1 && read.distractorTitles.length >= 2) {
+      qs.push(mkQuestion("Стаття з яким заголовком була серед прочитаних?",
+        App.ui.rnd(read.titles), read.distractorTitles.slice(0, 2)));
+    }
+
+    // 2) число з тексту (пропуск)
+    const sents = read.text.match(/[^.!?]+[.!?]+/g) || [];
+    const numSents = sents.filter(function (s) { return /\d{2,4}/.test(s) && s.trim().length >= 30; });
+    if (numSents.length) {
+      const s = App.ui.rnd(numSents).trim();
+      const num = s.match(/\d{2,4}/)[0];
+      const n = parseInt(num, 10);
+      const masked = s.replace(num, "___");
+      qs.push(mkQuestion("Яке число пропущено: «" + clipAround(masked, 150) + "»",
+        String(n), numDistractors(n)));
+    }
+
+    // 3) слово, що траплялося в тексті
+    const rare = rareWords(read.text);
+    const dRare = App.ui.shuffle(rareWords(read.distractorText)).filter(function (w) {
+      return textLower.indexOf(w) < 0;
+    });
+    if (rare.length && dRare.length >= 2) {
+      qs.push(mkQuestion("Яке з цих слів траплялося в тексті?",
+        App.ui.rnd(rare), dRare.slice(0, 2)));
+    }
+
+    return qs;
+  }
+
   /* ---------- RSVP ---------- */
+
+  const LENGTHS = [
+    { id: "s", label: "Короткий", words: 130, maxFetch: 8 },
+    { id: "m", label: "Середній", words: 280, maxFetch: 14 },
+    { id: "l", label: "Довгий", words: 550, maxFetch: 24 },
+  ];
 
   function renderRSVP(root) {
     let wpm = App.store.pref("rsvp.wpm", 250);
     let chunk = App.store.pref("rsvp.chunk", 1);
     let accel = App.store.pref("rsvp.accel", 0); // +сл/хв за хвилину
     let fontPx = App.store.pref("rsvp.font", 46);
-    let sourceIdx = App.store.pref("rsvp.source", 0); // індекс тексту, -1 (свій), -2 (Вікіпедія)
     let orpOn = App.store.pref("rsvp.orp", false);
+    let lenId = App.store.pref("rsvp.len", "m");
+    let quizOn = App.store.pref("rsvp.quiz", true);
 
     let tokens = [];
     let idx = 0;
@@ -34,6 +114,7 @@ App.modules.reading = (function () {
     let startWpm = wpm;
     let wikiLoading = false;
     let disposed = false;
+    let lastRead = null; // {titles, text, distractorTitles, distractorText}
 
     const wordEl = h("div", { class: "rsvp-word", style: "font-size:" + fontPx + "px;display:flex;align-items:baseline;width:100%" });
     const stage = h("div", { class: "rsvp-stage" }, wordEl);
@@ -41,33 +122,11 @@ App.modules.reading = (function () {
     const prog = h("div", { class: "progress thin", style: "margin-top:12px" }, progFill);
     const statusEl = h("div", { class: "row between muted small", style: "margin-top:8px;font-weight:700" });
     const wpmVal = h("span", { class: "yellow", style: "font-weight:900" }, wpm + " сл/хв");
+    const wikiInfo = h("div", { class: "tiny muted", style: "margin-top:10px;display:none" });
+    const quizBox = h("div");
 
-    const customArea = h("textarea", {
-      rows: 5,
-      placeholder: "Встав сюди будь-який текст (статтю, главу книги)…",
-      style: sourceIdx === -1 ? "" : "display:none",
-    });
-    customArea.value = App.store.pref("rsvp.customText", "");
-
-    const sourceSel = h("select", { style: "max-width:300px" });
-    App.data.readingTexts.forEach(function (t, i) {
-      sourceSel.append(h("option", { value: String(i) }, t.title));
-    });
-    sourceSel.append(h("option", { value: "-2" }, "🎲 Випадкова стаття (Вікіпедія)"));
-    sourceSel.append(h("option", { value: "-1" }, "✍️ Свій текст"));
-    sourceSel.value = String(sourceIdx);
-    sourceSel.addEventListener("change", function () {
-      sourceIdx = parseInt(sourceSel.value, 10);
-      App.store.setPref("rsvp.source", sourceIdx);
-      customArea.style.display = sourceIdx === -1 ? "" : "none";
-      wikiInfo.style.display = "none";
-    });
-
-    const wikiInfo = h("div", { class: "tiny muted", style: "margin-top:8px;display:none" });
-
-    function currentText() {
-      if (sourceIdx === -1) return customArea.value.trim();
-      return App.data.readingTexts[sourceIdx].text;
+    function lenDef() {
+      return LENGTHS.find(function (l) { return l.id === lenId; }) || LENGTHS[1];
     }
 
     function setWpm(v) {
@@ -81,6 +140,21 @@ App.modules.reading = (function () {
     wpmRange.addEventListener("input", function () {
       setWpm(parseInt(wpmRange.value, 10));
       App.store.setPref("rsvp.wpm", wpm);
+    });
+
+    const lenChips = h("div", { class: "row" });
+    LENGTHS.forEach(function (l) {
+      lenChips.append(h("button", {
+        class: "chip" + (l.id === lenId ? " active" : ""),
+        title: "≈ " + l.words + " слів",
+        onclick: function () {
+          lenId = l.id;
+          App.store.setPref("rsvp.len", lenId);
+          Array.prototype.forEach.call(lenChips.children, function (el, i) {
+            el.classList.toggle("active", LENGTHS[i].id === lenId);
+          });
+        },
+      }, l.label));
     });
 
     const chunkChips = h("div", { class: "row" });
@@ -112,9 +186,18 @@ App.modules.reading = (function () {
     fontRange.value = fontPx;
     fontRange.addEventListener("input", function () {
       fontPx = parseInt(fontRange.value, 10);
-      wordEl.style.fontSize = fontPx + "px";
+      wordEl.style.fontSize = fontPx + "px"; // слово-приклад одразу показує реальний розмір
       App.store.setPref("rsvp.font", fontPx);
     });
+
+    function showIdle() {
+      wordEl.innerHTML = "";
+      wordEl.append(h("span", { style: "flex:1;text-align:center;color:var(--muted)" }, "приклад"));
+      statusEl.innerHTML = "";
+      statusEl.append(
+        h("span", null, "Натисни СТАРТ — текст приїде з Вікіпедії"),
+        h("span", null, "слово вище показує обраний розмір шрифту"));
+    }
 
     function showChunk() {
       const slice = tokens.slice(idx, idx + chunk);
@@ -170,10 +253,22 @@ App.modules.reading = (function () {
 
     function start() {
       if (running) return;
-      if (sourceIdx === -2) { startWiki(); return; }
+      quizBox.innerHTML = "";
       wikiInfo.style.display = "none";
-      if (sourceIdx === -1) App.store.setPref("rsvp.customText", customArea.value);
-      beginRun(currentText());
+      startWiki();
+    }
+
+    function fetchRandomSummaries(n) {
+      const reqs = [];
+      for (let i = 0; i < n; i++) {
+        reqs.push(fetch("https://uk.wikipedia.org/api/rest_v1/page/random/summary", {
+          headers: { Accept: "application/json" },
+        }).then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        }));
+      }
+      return Promise.all(reqs);
     }
 
     /* нескінченне джерело текстів: випадкові статті української Вікіпедії */
@@ -183,28 +278,41 @@ App.modules.reading = (function () {
       startBtn.disabled = true;
       startBtn.textContent = "ЗАВАНТАЖУЮ…";
       try {
+        const def = lenDef();
         const parts = [];
         const titles = [];
         let total = 0;
-        for (let i = 0; i < 7 && total < 220; i++) {
-          const resp = await fetch("https://uk.wikipedia.org/api/rest_v1/page/random/summary", {
-            headers: { Accept: "application/json" },
+        let fetched = 0;
+        while (total < def.words && fetched < def.maxFetch) {
+          const batch = Math.min(4, def.maxFetch - fetched);
+          fetched += batch;
+          const sums = await fetchRandomSummaries(batch);
+          sums.forEach(function (j) {
+            const extract = (j.extract || "").trim();
+            const wc = extract ? extract.split(/\s+/).length : 0;
+            if (wc < 20 || total >= def.words) return; // пропускаємо статті-заглушки
+            titles.push(j.title);
+            parts.push(extract);
+            total += wc;
           });
-          if (!resp.ok) throw new Error("HTTP " + resp.status);
-          const j = await resp.json();
-          const extract = (j.extract || "").trim();
-          const wc = extract ? extract.split(/\s+/).length : 0;
-          if (wc < 20) continue; // пропускаємо статті-заглушки
-          titles.push(j.title);
-          parts.push(extract);
-          total += wc;
         }
         if (!parts.length) throw new Error("порожні статті");
+        // ще дві статті — на дистрактори для питань
+        let dTitles = [];
+        let dText = "";
+        try {
+          const ds = await fetchRandomSummaries(2);
+          ds.forEach(function (j) {
+            dTitles.push(j.title);
+            dText += " " + (j.extract || "");
+          });
+        } catch (e) { /* питання просто будуть коротші */ }
+        lastRead = { titles: titles, text: parts.join(" "), distractorTitles: dTitles, distractorText: dText };
         wikiInfo.textContent = "📚 Статті: " + titles.join(" · ");
         wikiInfo.style.display = "";
-        beginRun(parts.join(" "));
+        beginRun(lastRead.text);
       } catch (e) {
-        App.ui.toast("Не вдалося отримати статтю з Вікіпедії — перевір інтернет", "info");
+        App.ui.toast("Не вдалося отримати статті з Вікіпедії — перевір інтернет", "info");
       } finally {
         wikiLoading = false;
         startBtn.disabled = false;
@@ -220,6 +328,15 @@ App.modules.reading = (function () {
       else tick();
     }
 
+    function saveRecord(avg, wordsRead, seconds, comp) {
+      const rec = {
+        kind: "rsvp", rsvpWpm: Math.round(wpm), avgWpm: avg,
+        words: wordsRead, seconds: seconds,
+      };
+      if (comp !== null && comp !== undefined) rec.comp = comp;
+      App.store.addRecord("reading", rec);
+    }
+
     function stopAll(saveIt) {
       running = false; paused = false;
       if (timeoutId) clearTimeout(timeoutId);
@@ -230,10 +347,7 @@ App.modules.reading = (function () {
       if (saveIt && idx > 20) {
         const minutes = activeMs / 60000;
         const avg = Math.round(Math.min(idx, tokens.length) / Math.max(minutes, 0.01));
-        App.store.addRecord("reading", {
-          kind: "rsvp", rsvpWpm: Math.round(wpm), avgWpm: avg,
-          words: Math.min(idx, tokens.length), seconds: Math.round(activeMs / 1000),
-        });
+        saveRecord(avg, Math.min(idx, tokens.length), Math.round(activeMs / 1000), null);
       }
     }
 
@@ -241,18 +355,77 @@ App.modules.reading = (function () {
       const wordsRead = tokens.length;
       const minutes = activeMs / 60000;
       const avg = Math.round(wordsRead / Math.max(minutes, 0.01));
+      const seconds = Math.round(activeMs / 1000);
       stopAll(false);
-      App.store.addRecord("reading", {
-        kind: "rsvp", rsvpWpm: Math.round(wpm), avgWpm: avg,
-        words: wordsRead, seconds: Math.round(activeMs / 1000),
-      });
       wordEl.innerHTML = "";
       wordEl.append(h("span", { style: "flex:1;text-align:center;font-size:1.4rem" },
         "✅ " + wordsRead + " слів · середній темп " + avg + " сл/хв"));
-      App.ui.toast("Сесію збережено: " + avg + " сл/хв");
-      if (accel && wpm > startWpm) {
-        App.store.setPref("rsvp.wpm", Math.round(wpm));
+      if (accel && wpm > startWpm) App.store.setPref("rsvp.wpm", Math.round(wpm));
+      const qs = quizOn && lastRead ? buildQuiz(lastRead) : [];
+      if (qs.length >= 2) {
+        showQuiz(qs, avg, wordsRead, seconds);
+      } else {
+        saveRecord(avg, wordsRead, seconds, null);
+        App.ui.toast("Сесію збережено: " + avg + " сл/хв");
       }
+    }
+
+    function showQuiz(qs, avg, wordsRead, seconds) {
+      quizBox.innerHTML = "";
+      const answers = new Array(qs.length).fill(-1);
+      const optEls = [];
+      let checked = false;
+      const list = h("div");
+      qs.forEach(function (q, qi) {
+        const opts = h("div");
+        optEls.push(opts);
+        q.options.forEach(function (opt, oi) {
+          opts.append(h("div", {
+            class: "q-option",
+            onclick: function () {
+              if (checked) return;
+              answers[qi] = oi;
+              Array.prototype.forEach.call(opts.children, function (el, i) {
+                el.classList.toggle("sel", i === oi);
+              });
+              checkBtn.disabled = answers.indexOf(-1) >= 0;
+            },
+          }, opt));
+        });
+        list.append(h("div", { style: "margin-bottom:14px" },
+          h("h3", null, (qi + 1) + ". " + q.q), opts));
+      });
+      const resultLine = h("div", { style: "font-weight:900" });
+      const againBtn = h("button", { class: "btn", style: "display:none", onclick: start }, "ЩЕ ТЕКСТ");
+      const checkBtn = h("button", {
+        class: "btn green", disabled: true,
+        onclick: function () {
+          if (checked) return;
+          checked = true;
+          checkBtn.style.display = "none";
+          let correct = 0;
+          qs.forEach(function (q, qi) {
+            Array.prototype.forEach.call(optEls[qi].children, function (el, oi) {
+              if (oi === q.correct) el.classList.add("ok");
+              else if (oi === answers[qi]) el.classList.add("bad");
+            });
+            if (answers[qi] === q.correct) correct++;
+          });
+          const comp = Math.round(correct / qs.length * 100);
+          const eff = Math.round(avg * comp / 100);
+          resultLine.append("Розуміння: " + correct + "/" + qs.length + " (" + comp + "%) · ефективна швидкість " + eff + " сл/хв");
+          saveRecord(avg, wordsRead, seconds, comp);
+          App.ui.toast("Збережено: " + avg + " сл/хв · розуміння " + comp + "%");
+          againBtn.style.display = "";
+        },
+      }, "ПЕРЕВІРИТИ");
+      quizBox.append(h("div", { class: "card inner", style: "margin-top:14px" },
+        h("h2", null, "🧐 Перевірка розуміння"),
+        h("div", { class: "tiny muted", style: "margin:-6px 0 12px" },
+          "Питання згенеровані з щойно прочитаного — перевір, що реально засвоїв."),
+        list,
+        h("div", { class: "row", style: "gap:14px" }, checkBtn, againBtn, resultLine)));
+      quizBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
     const startBtn = h("button", { class: "btn green big", onclick: start }, "СТАРТ");
@@ -268,9 +441,6 @@ App.modules.reading = (function () {
     }
     document.addEventListener("keydown", onKey);
 
-    wordEl.append(h("span", { style: "flex:1;text-align:center;color:var(--muted);font-size:1.2rem" },
-      "Натисни СТАРТ — слова з'являтимуться тут"));
-
     const orpCb = h("input", {
       type: "checkbox",
       onchange: function () {
@@ -280,26 +450,41 @@ App.modules.reading = (function () {
     });
     orpCb.checked = orpOn;
 
+    const quizCb = h("input", {
+      type: "checkbox",
+      onchange: function () {
+        quizOn = quizCb.checked;
+        App.store.setPref("rsvp.quiz", quizOn);
+      },
+    });
+    quizCb.checked = quizOn;
+
     root.append(
       h("div", { class: "card" },
         h("div", { class: "row", style: "gap:14px" },
-          h("div", { class: "field" }, h("span", null, "Текст"), sourceSel),
+          h("div", { class: "field" }, h("span", null, "Довжина тексту"), lenChips),
           h("div", { class: "field" }, h("span", null, "Слів за раз"), chunkChips),
           h("div", { class: "field" }, h("span", null, "Розгін"), accelSel),
           h("div", { class: "field", style: "min-width:130px" }, h("span", null, "Розмір шрифту"), fontRange)),
-        customArea,
-        h("div", { class: "row", style: "margin-top:12px" },
+        h("div", { class: "row", style: "margin-top:12px;gap:16px" },
           h("span", { class: "muted", style: "font-weight:800" }, "Темп:"), wpmRange, wpmVal,
           h("label", {
             class: "opt",
             title: "Слово зсувається так, щоб червона літера завжди була в одній точці екрана — око взагалі не рухається. Корисно на високих темпах.",
-          }, orpCb, "Літера-якір (ORP)")),
+          }, orpCb, "Літера-якір (ORP)"),
+          h("label", {
+            class: "opt",
+            title: "Після тексту — 3 питання, згенеровані з прочитаного",
+          }, quizCb, "Питання після тексту")),
         wikiInfo),
       h("div", { class: "card" },
         stage, prog, statusEl,
         h("div", { class: "row center", style: "margin-top:16px" }, startBtn, pauseBtn, stopBtn),
+        quizBox,
         h("div", { class: "tiny muted", style: "margin-top:10px;text-align:center" },
-          "Пробіл — пауза · Esc — стоп · ↑/↓ — темп на льоту. Тренуйся на +30% від комфортного темпу. «Літера-якір» тримає погляд в одній точці — спробуй, коли розженешся.")));
+          "Тексти — випадкові статті української Вікіпедії: щоразу щось нове. Пробіл — пауза · Esc — стоп · ↑/↓ — темп на льоту.")));
+
+    showIdle();
 
     return function cleanup() {
       disposed = true;
@@ -475,7 +660,7 @@ App.modules.reading = (function () {
           return h("tr", null,
             h("td", null, r.kind === "test" ? "📏 тест" : "⚡ RSVP"),
             h("td", null, (r.kind === "test" ? r.wpm : (r.avgWpm || r.rsvpWpm)) + " сл/хв"),
-            h("td", null, r.kind === "test" ? r.comp + "%" : "—"),
+            h("td", null, r.comp != null ? r.comp + "%" : "—"),
             h("td", null, String(r.words || "—")),
             h("td", null, App.ui.fmtDate(r.date)));
         })) : h("div", { class: "muted small" }, "Поки порожньо. Пройди тест або RSVP-сесію.")));

@@ -24,11 +24,15 @@ App.modules.schulte = (function () {
   }
 
   /* орієнтири часу під конкретний розмір (ті ж пороги, що й в evaluate) */
-  function benchmarkText(size) {
+  function benchmarkEl(size) {
     const n = size * size;
-    return "Орієнтир для " + size + "×" + size + ": < " + Math.round(n * 0.8) +
-      " с — феноменально, < " + Math.round(n * 1.2) + " с — відмінно, < " +
-      Math.round(n * 1.8) + " с — добре. Дивись лише в центр таблиці!";
+    return h("div", { class: "tiny", style: "margin-top:10px;line-height:1.9" },
+      h("div", { class: "muted", style: "font-weight:800" }, "Орієнтир для " + size + "×" + size + ":"),
+      h("div", { class: "accent" }, "🏆 < " + Math.round(n * 0.8) + " с — феноменально"),
+      h("div", { class: "accent" }, "🔥 < " + Math.round(n * 1.2) + " с — відмінно"),
+      h("div", { class: "yellow" }, "👍 < " + Math.round(n * 1.8) + " с — добре"),
+      h("div", { class: "muted" }, "повільніше — тренуйся щодня"),
+      h("div", { class: "muted", style: "margin-top:4px" }, "Дивись лише в центр таблиці!"));
   }
 
   /* оцінка часу для квадрата size×size */
@@ -39,7 +43,7 @@ App.modules.schulte = (function () {
     if (s <= n * 1.2) return { text: "Відмінно! 🔥", cls: "accent" };
     if (s <= n * 1.8) return { text: "Добре 👍", cls: "yellow" };
     if (s <= n * 2.6) return { text: "Середньо — є куди рости", cls: "muted" };
-    return { text: "Повільно — тренуйся щодня", cls: "muted" };
+    return { text: "Повільно — тренуйся щодня", cls: "danger-text" };
   }
 
   function render(root) {
@@ -88,7 +92,7 @@ App.modules.schulte = (function () {
         grid.append(btn);
         return cell;
       });
-      if (opts.dot) grid.append(h("div", { class: "center-dot" }));
+      if (opts.dot) grid.append(h("div", { class: "center-mark" }));
     }
 
     function reshuffleRemaining() {
@@ -121,11 +125,25 @@ App.modules.schulte = (function () {
       showOverlay(null);
       updateInfo();
       startBtn.textContent = "ЗАНОВО";
+      stopBtn.style.display = "";
+    }
+
+    function stopRun() {
+      if (!running) return;
+      running = false;
+      stopTimer();
+      timerEl.textContent = "0.00 с";
+      startBtn.textContent = "СТАРТ";
+      stopBtn.style.display = "none";
+      buildGrid();
+      showIdleOverlay();
+      updateInfo();
     }
 
     function finish() {
       running = false;
       stopTimer();
+      stopBtn.style.display = "none";
       const ms = performance.now() - startTs;
       timerEl.textContent = App.ui.fmtMs(ms);
       const mode = modeKey(opts);
@@ -185,6 +203,7 @@ App.modules.schulte = (function () {
           onclick: function () {
             size = sz; savePrefs();
             running = false; stopTimer();
+            stopBtn.style.display = "none";
             buildGrid(); showIdleOverlay(); renderSide(); updateInfo();
             timerEl.textContent = "0.00 с";
             startBtn.textContent = "СТАРТ";
@@ -213,7 +232,7 @@ App.modules.schulte = (function () {
           optToggle("shuffle", "Перемішувати після кліку", "Хардкор: цифри міняються місцями після кожного знайденого числа"),
           optToggle("reverse", "Зворотний порядок", "Шукай від найбільшого до 1"),
           optToggle("hideFound", "Затемнювати знайдені"),
-          optToggle("dot", "Точка в центрі", "Тримай погляд у центрі, шукай периферійним зором"),
+          optToggle("dot", "Мітка в центрі", "Тримай погляд у центрі, шукай периферійним зором"),
           optToggle("hint", "Показувати наступне число"))));
 
       const best = bestFor(size, modeKey(opts));
@@ -224,7 +243,7 @@ App.modules.schulte = (function () {
           return h("tr", null,
             h("td", null, r.size + "×" + r.size),
             h("td", { title: modeLabel(r.mode || "") }, modeShort(r.mode || "")),
-            h("td", null, App.ui.fmtMs(r.timeMs)),
+            h("td", { class: evaluate(r.size, r.timeMs).cls, style: "font-weight:800" }, App.ui.fmtMs(r.timeMs)),
             h("td", null, String(r.errors)),
             h("td", null, App.ui.fmtDate(r.date)));
         }));
@@ -235,7 +254,7 @@ App.modules.schulte = (function () {
           h("div", { class: "muted", style: "font-weight:700" }, size + "×" + size + " · " + modeLabel(modeKey(opts))),
           h("div", { class: "yellow", style: "font-weight:900;font-size:1.1rem" }, best ? App.ui.fmtMs(best) : "—")),
         recent.length ? tbl : h("div", { class: "muted small" }, "Зіграй першу таблицю — результати з'являться тут."),
-        h("div", { class: "tiny muted", style: "margin-top:10px" }, benchmarkText(size))));
+        benchmarkEl(size)));
     }
 
     function showIdleOverlay() {
@@ -247,6 +266,7 @@ App.modules.schulte = (function () {
     }
 
     const startBtn = h("button", { class: "btn green big", onclick: start }, "СТАРТ");
+    const stopBtn = h("button", { class: "btn ghost", style: "display:none", onclick: stopRun }, "СТОП");
 
     root.append(
       h("h1", { class: "page-title" }, "🔢 Таблиці Шульте"),
@@ -255,7 +275,7 @@ App.modules.schulte = (function () {
         h("div", { class: "schulte-board-zone" },
           h("div", { class: "row", style: "width:100%;max-width:470px;justify-content:space-between" }, timerEl, nextEl, errEl),
           grid,
-          h("div", { class: "row" }, startBtn)),
+          h("div", { class: "row" }, startBtn, stopBtn)),
         sidePanel));
 
     buildGrid();
