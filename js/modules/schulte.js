@@ -89,6 +89,7 @@ App.modules.schulte = (function () {
     function buildGrid() {
       grid.innerHTML = "";
       grid.style.gridTemplateColumns = "repeat(" + size + ", 1fr)";
+      grid.style.setProperty("--fs", (42 / size).toFixed(2)); // шрифт пропорційний до клітинки
       const total = size * size;
       const odd = total % 2 === 1;
       const centerIdx = (total - 1) / 2;
