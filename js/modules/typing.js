@@ -42,35 +42,59 @@ App.modules.typing = (function () {
     let text = "";
     let chars = [];
     let spans = [];
-    let pos = 0;
-    let errors = 0;
-    let totalKeys = 0;
-    let startTs = 0;
+    let typedState = [];   // на кожен індекс: "ok" | "wrong" | null
+    let pos = 0;           // індекс наступного символу (курсор)
+    let totalKeys = 0;     // усі натискання друкованих клавіш
+    let wrongKeys = 0;     // помилкові натискання (для точності)
     let started = false;
     let finished = false;
     let statInt = null;
+    // пауза таймера при втраті фокусу
+    let accumMs = 0;
+    let runStart = 0;
+    let focused = false;
+    let lastHint = 0;
 
     const cpmEl = h("span", { class: "yellow", style: "font-weight:900;font-size:1.2rem" }, "0");
     const accEl = h("span", { style: "font-weight:800" }, "100%");
     const errEl = h("span", { style: "font-weight:800" }, "0");
     const progFill = h("div");
 
-    const hiddenInput = h("input", { class: "hidden-input", type: "text", autocomplete: "off", spellcheck: "false" });
+    const hiddenInput = h("input", { class: "hidden-input", type: "text", autocomplete: "off", autocapitalize: "off", spellcheck: "false" });
     const textBox = h("div", { class: "type-text blurred", tabindex: "0" });
     const resultBox = h("div");
 
     const customArea = h("textarea", { rows: 3, placeholder: "Встав свій текст для друку…", style: sourceId === "custom" ? "margin-top:10px" : "display:none" });
     customArea.value = App.store.pref("typing.customText", "");
 
+    /* нормалізація: ґ↔г, будь-яке тире → "-", будь-який апостроф → "'", лапки → '"', nbsp → пробіл */
+    const RE_APOS = /[’‘ʼ`´']/;
+    const RE_DASH = /[—–−‒‐‑\-]/;
+    const RE_QUOTE = /[«»„“”]/;
+    function norm(ch) {
+      if (ch === "ґ") return "г";
+      if (ch === "Ґ") return "Г";
+      if (ch === " ") return " ";
+      if (RE_APOS.test(ch)) return "'";
+      if (RE_DASH.test(ch)) return "-";
+      if (RE_QUOTE.test(ch)) return '"';
+      return ch;
+    }
+    function matches(typed, expected) {
+      return typed === expected || norm(typed) === norm(expected);
+    }
+
     function newText() {
       const lenDef = LENGTHS.find(function (l) { return l.id === lengthId; }) || LENGTHS[1];
       if (sourceId === "custom") App.store.setPref("typing.customText", customArea.value);
       text = buildText(sourceId, lenDef.chars, customArea.value);
-      if (!text || text.length < 10) {
-        text = "Встав довший текст у поле вище і натисни «Новий текст».";
+      if (!text) {
+        text = "Встав свій текст у поле вище і натисни «Новий текст».";
       }
       chars = Array.from(text);
-      pos = 0; errors = 0; totalKeys = 0; started = false; finished = false;
+      typedState = chars.map(function () { return null; });
+      pos = 0; totalKeys = 0; wrongKeys = 0; started = false; finished = false;
+      accumMs = 0; runStart = 0;
       resultBox.innerHTML = "";
       cpmEl.textContent = "0"; accEl.textContent = "100%"; errEl.textContent = "0";
       progFill.style.width = "0%";
@@ -85,26 +109,79 @@ App.modules.typing = (function () {
       hiddenInput.focus();
     }
 
-    function minutes() { return (performance.now() - startTs) / 60000; }
+    function elapsedMs() {
+      return accumMs + ((focused && started && !finished) ? performance.now() - runStart : 0);
+    }
+
+    function correctCount() {
+      let c = 0;
+      for (let i = 0; i < pos; i++) if (typedState[i] === "ok") c++;
+      return c;
+    }
+
+    function allCorrect() {
+      for (let i = 0; i < chars.length; i++) if (typedState[i] !== "ok") return false;
+      return true;
+    }
 
     function updateLive() {
       if (!started || finished) return;
-      const m = Math.max(minutes(), 1 / 60);
-      cpmEl.textContent = String(Math.round(pos / m));
-      accEl.textContent = totalKeys ? Math.round((totalKeys - errors) / totalKeys * 100) + "%" : "100%";
-      errEl.textContent = String(errors);
+      const m = Math.max(elapsedMs() / 60000, 1 / 60);
+      cpmEl.textContent = String(Math.round(correctCount() / m));
+      accEl.textContent = totalKeys ? Math.round((totalKeys - wrongKeys) / totalKeys * 100) + "%" : "100%";
+      errEl.textContent = String(wrongKeys);
       progFill.style.width = (pos / chars.length * 100) + "%";
+    }
+
+    function hintFix() {
+      const now = performance.now();
+      if (now - lastHint < 1500) return;
+      lastHint = now;
+      App.ui.toast("Є помилки — зітри їх клавішею ⌫ (Backspace), щоб завершити", "info");
+    }
+
+    function typeChar(ch) {
+      if (finished) return;
+      if (pos >= chars.length) { hintFix(); return; } // дійшов до кінця з помилками — треба виправити
+      if (!started) { started = true; focused = true; runStart = performance.now(); }
+      totalKeys++;
+      const ok = matches(ch, chars[pos]);
+      if (!ok) wrongKeys++;
+      typedState[pos] = ok ? "ok" : "wrong";
+      spans[pos].classList.remove("cur");
+      spans[pos].classList.add(ok ? "ok" : "wrong");
+      pos++;
+      if (pos < chars.length) {
+        spans[pos].classList.add("cur");
+        spans[pos].scrollIntoView({ block: "nearest" });
+      } else if (allCorrect()) {
+        updateLive();
+        finish();
+        return;
+      }
+      updateLive();
+    }
+
+    function backspace() {
+      if (finished || pos <= 0) return;
+      if (pos < chars.length) spans[pos].classList.remove("cur");
+      pos--;
+      typedState[pos] = null;
+      spans[pos].classList.remove("ok", "wrong");
+      spans[pos].classList.add("cur");
+      spans[pos].scrollIntoView({ block: "nearest" });
+      updateLive();
     }
 
     function finish() {
       finished = true;
-      const m = Math.max(minutes(), 1 / 60);
+      const m = Math.max(elapsedMs() / 60000, 1 / 60);
       const cpm = Math.round(chars.length / m);
       const wordCount = text.split(/\s+/).length;
       const wpm = Math.round(wordCount / m);
-      const acc = totalKeys ? Math.round((totalKeys - errors) / totalKeys * 100) : 100;
+      const acc = totalKeys ? Math.round((totalKeys - wrongKeys) / totalKeys * 100) : 100;
       const prevBest = App.store.best("typing", "cpm", "max");
-      App.store.addRecord("typing", { cpm: cpm, wpm: wpm, accuracy: acc, errors: errors, chars: chars.length, source: sourceId });
+      App.store.addRecord("typing", { cpm: cpm, wpm: wpm, accuracy: acc, errors: wrongKeys, chars: chars.length, source: sourceId });
       if (prevBest === null || cpm > prevBest) App.ui.toast("🏆 Новий рекорд друку: " + cpm + " зн/хв");
       progFill.style.width = "100%";
       resultBox.innerHTML = "";
@@ -121,42 +198,29 @@ App.modules.typing = (function () {
       renderRecords();
     }
 
-    function onInput() {
-      const val = hiddenInput.value;
-      hiddenInput.value = "";
-      if (!val || finished) return;
-      Array.from(val).forEach(function (c) {
-        if (finished) return;
-        if (!started) {
-          started = true;
-          startTs = performance.now();
-        }
-        totalKeys++;
-        const expected = chars[pos];
-        if (c === expected) {
-          spans[pos].classList.remove("cur", "err");
-          spans[pos].classList.add("ok");
-          pos++;
-          if (pos >= chars.length) { updateLive(); finish(); return; }
-          spans[pos].classList.add("cur");
-          spans[pos].scrollIntoView({ block: "nearest" });
-        } else {
-          errors++;
-          const sp = spans[pos];
-          sp.classList.add("err");
-          setTimeout(function () { sp.classList.remove("err"); }, 300);
-        }
-      });
-      updateLive();
+    function onKeyDown(e) {
+      if (finished) return;
+      if (e.key === "Backspace") { e.preventDefault(); backspace(); return; }
+      if (e.ctrlKey || e.metaKey || e.altKey) return; // не чіпаємо комбінації
+      if (e.key && e.key.length === 1) { e.preventDefault(); typeChar(e.key); }
+      else if (e.key === "Enter") { e.preventDefault(); typeChar("\n"); }
     }
 
-    hiddenInput.addEventListener("input", onInput);
-    hiddenInput.addEventListener("focus", function () { textBox.classList.remove("blurred"); });
-    hiddenInput.addEventListener("blur", function () { textBox.classList.add("blurred"); });
-    textBox.addEventListener("click", function () { hiddenInput.focus(); });
-    textBox.addEventListener("focus", function () { hiddenInput.focus(); });
+    hiddenInput.addEventListener("keydown", onKeyDown);
+    hiddenInput.addEventListener("input", function () { hiddenInput.value = ""; }); // глушимо IME/вставку
+    hiddenInput.addEventListener("focus", function () {
+      textBox.classList.remove("blurred");
+      focused = true;
+      if (started && !finished) runStart = performance.now();
+    });
+    hiddenInput.addEventListener("blur", function () {
+      textBox.classList.add("blurred");
+      if (focused && started && !finished) accumMs += performance.now() - runStart; // пауза таймера
+      focused = false;
+    });
+    textBox.addEventListener("mousedown", function (e) { e.preventDefault(); hiddenInput.focus(); });
 
-    statInt = setInterval(updateLive, 500);
+    statInt = setInterval(updateLive, 300);
 
     const recordsBox = h("div");
 
@@ -212,7 +276,7 @@ App.modules.typing = (function () {
 
     root.append(
       h("h1", { class: "page-title" }, "⌨️ Клавотренажер"),
-      h("div", { class: "page-sub" }, "Як клавогонки, але з українською. Помилка не пропускає далі — натисни правильну клавішу."),
+      h("div", { class: "page-sub" }, "Як клавогонки, але з українською. Помилки підсвічуються червоним — друкуй далі, а виправляй клавішею ⌫."),
       h("div", { class: "card fade-in" },
         h("div", { class: "row", style: "gap:14px" },
           h("div", { class: "field" }, h("span", null, "Джерело"), sourceSel),
@@ -229,7 +293,7 @@ App.modules.typing = (function () {
         textBox,
         resultBox,
         h("div", { class: "tiny muted", style: "margin-top:10px" },
-          "Не забудь перемкнути розкладку на потрібну мову. Клік по тексту — і друкуй.")),
+          "Клік по тексту — і друкуй. «ґ» зараховує й «г»; довге тире — і апостроф ' приймаються спрощено. Курсор поза текстом — таймер на паузі.")),
       recordsBox);
 
     newText();
