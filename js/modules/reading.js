@@ -23,14 +23,38 @@ App.modules.reading = (function () {
     return { q: q, options: options, correct: options.indexOf(correct) };
   }
 
-  function rareWords(text) {
+  /* унікальні «змістовні» слова (від 5 літер) у порядку появи */
+  function poolWords(text) {
     if (!text) return [];
     const seen = {};
     const out = [];
-    (text.toLowerCase().match(/[а-яґєії']{9,}/g) || []).forEach(function (w) {
-      if (!seen[w]) { seen[w] = true; out.push(w); }
+    (text.match(/[А-Яа-яҐґЄєІіЇї'’]{5,}/g) || []).forEach(function (w) {
+      const k = w.toLowerCase();
+      if (!seen[k]) { seen[k] = true; out.push(w); }
     });
     return out;
+  }
+
+  /* слово для пропуску: не перше в реченні, від 5 літер */
+  function pickClozeWord(sentence) {
+    const first = (sentence.trim().split(/\s+/)[0] || "").toLowerCase();
+    const cand = (sentence.match(/[А-Яа-яҐґЄєІіЇї'’]{5,}/g) || [])
+      .filter(function (w) { return w.toLowerCase() !== first && w[0] === w[0].toLowerCase(); });
+    return cand.length ? App.ui.rnd(cand) : null;
+  }
+
+  /* дистрактори зі схожим закінченням (граматично правдоподібні), потім будь-які */
+  function pickDistractors(word, pool, n) {
+    const w = word.toLowerCase();
+    const end = w.slice(-2);
+    const diff = pool.filter(function (x) { return x.toLowerCase() !== w; });
+    const same = App.ui.shuffle(diff.filter(function (x) { return x.toLowerCase().slice(-2) === end; }));
+    const rest = App.ui.shuffle(diff.filter(function (x) { return x.toLowerCase().slice(-2) !== end; }));
+    const pick = [];
+    same.concat(rest).forEach(function (x) {
+      if (pick.length < n && !pick.some(function (p) { return p.toLowerCase() === x.toLowerCase(); })) pick.push(x);
+    });
+    return pick;
   }
 
   function numDistractors(n) {
@@ -65,46 +89,51 @@ App.modules.reading = (function () {
       .filter(function (s) { return s.length >= 35 && s.length <= 170 && /\s/.test(s); });
   }
 
+  /* Генерує до 3 питань: пізнавання речення + заповнення пропуску (cloze).
+     Cloze («яке слово пропущено») тренує розуміння, а не зубріння всіх слів. */
   function buildQuiz(read) {
     const qs = [];
-    const textLower = read.text.toLowerCase();
     const dText = read.distractorText || "";
+    const mine = App.ui.shuffle(sentences(read.text));
+    const others = App.ui.shuffle(sentences(dText));
+    const dWords = poolWords(dText);
+    const usedSent = {};
 
-    // пізнавання заголовка (лише для Вікіпедії)
+    // заголовок (лише для Вікіпедії)
     if (read.titles && read.titles.length >= 1 && read.distractorTitles && read.distractorTitles.length >= 2) {
       qs.push(mkQuestion("Стаття з яким заголовком була серед прочитаних?",
         App.ui.rnd(read.titles), read.distractorTitles.slice(0, 2)));
     }
 
-    // яке речення було в тексті (працює і для прози)
-    const mine = App.ui.shuffle(sentences(read.text));
-    const others = App.ui.shuffle(sentences(dText));
+    // 1 питання на пізнавання речення
     if (mine.length && others.length >= 2) {
+      usedSent[0] = true;
       qs.push(mkQuestion("Яке речення було в тексті?",
-        clip(mine[0], 145), [clip(others[0], 145), clip(others[1], 145)]));
+        clip(mine[0], 150), [clip(others[0], 150), clip(others[1], 150)]));
     }
 
-    // число з тексту (пропуск) — якщо є
-    const numSents = sentences(read.text).filter(function (s) { return /\d{2,4}/.test(s); });
-    if (numSents.length) {
-      const s = App.ui.rnd(numSents);
-      const num = s.match(/\d{2,4}/)[0];
-      const n = parseInt(num, 10);
-      qs.push(mkQuestion("Яке число пропущено: «" + clipAround(s.replace(num, "___"), 150) + "»",
-        String(n), numDistractors(n)));
+    // решта — cloze: пропусти слово в реальному реченні
+    for (let i = 1; i < mine.length && qs.length < 4; i++) {
+      const s = mine[i];
+      const word = pickClozeWord(s);
+      if (!word) continue;
+      const ds = pickDistractors(word, dWords, 2);
+      if (ds.length < 2) continue;
+      qs.push(mkQuestion("Яке слово пропущено: «" + clipAround(s.replace(word, "___"), 150) + "»", word, ds));
     }
 
-    // слово, що траплялося в тексті
-    const rare = rareWords(read.text);
-    const dRare = App.ui.shuffle(rareWords(dText)).filter(function (w) {
-      return textLower.indexOf(w) < 0;
-    });
-    if (rare.length && dRare.length >= 2) {
-      qs.push(mkQuestion("Яке слово траплялося в тексті?",
-        App.ui.rnd(rare), dRare.slice(0, 2)));
+    // запасний варіант — число з тексту (якщо взагалі є й бракує питань)
+    if (qs.length < 3) {
+      const numSents = mine.filter(function (s) { return /\d{2,4}/.test(s); });
+      if (numSents.length) {
+        const s = App.ui.rnd(numSents);
+        const num = s.match(/\d{2,4}/)[0];
+        qs.push(mkQuestion("Яке число пропущено: «" + clipAround(s.replace(num, "___"), 150) + "»",
+          num, numDistractors(parseInt(num, 10))));
+      }
     }
 
-    return qs;
+    return qs.slice(0, 3);
   }
 
   /* ---------- RSVP ---------- */
@@ -533,9 +562,11 @@ App.modules.reading = (function () {
         h("div", { class: "row center", style: "margin-top:16px" }, startBtn, pauseBtn, stopBtn),
         quizBox,
         h("div", { class: "tiny muted", style: "margin-top:10px;text-align:center" },
-          "«Художні» — плавні уривки прози (без імен і дат); «Вікіпедія» — випадкові статті з фактами. Пробіл — пауза · Esc — стоп · ↑/↓ — темп на льоту.")));
+          "«Художні» — плавні уривки прози; «Вікіпедія» — випадкові статті з фактами. Пробіл — старт/пауза · Esc — стоп · ↑/↓ — темп на льоту.")));
 
     showIdle();
+
+    App.primaryAction = function () { if (!running) { start(); return true; } return false; };
 
     return function cleanup() {
       disposed = true;
@@ -725,6 +756,7 @@ App.modules.reading = (function () {
 
     function build() {
       if (innerCleanup) { innerCleanup(); innerCleanup = null; }
+      App.primaryAction = null; // лише RSVP-вкладка вмикає Space-старт
       root.innerHTML = "";
       root.append(
         h("h1", { class: "page-title" }, "📖 Швидкочитання"),

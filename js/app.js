@@ -49,6 +49,7 @@
 
   function navigate() {
     if (cleanup) { try { cleanup(); } catch (e) { console.error(e); } cleanup = null; }
+    App.primaryAction = null; // модуль перевизначить, якщо підтримує Space-старт
     App.store.rollover();
     const id = currentId();
     const mod = MODULES.find(function (m) { return m.id === id; });
@@ -59,6 +60,34 @@
     App.renderSidebarFooter();
     window.scrollTo(0, 0);
   }
+
+  function cycleSection(dir) {
+    const ids = MODULES.map(function (m) { return m.id; });
+    let i = ids.indexOf(currentId());
+    i = (i + dir + ids.length) % ids.length;
+    location.hash = "#/" + (ids[i] === "dashboard" ? "" : ids[i]);
+  }
+
+  /* Глобальні клавіші: Tab — перемикання розділів, Space — старт гри */
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      cycleSection(e.shiftKey ? -1 : 1);
+      return;
+    }
+    if (e.code === "Space" || e.key === " ") {
+      const t = e.target;
+      const tag = (t && t.tagName || "").toLowerCase();
+      const editable = tag === "input" || tag === "textarea" || tag === "select" || (t && t.isContentEditable);
+      if (editable) return; // у полях пробіл лишається пробілом
+      if (typeof App.primaryAction === "function") {
+        const acted = App.primaryAction();
+        e.preventDefault(); // на сторінці гри Space не гортає сторінку
+        // якщо щойно стартували — не даємо цьому ж натисканню одразу спрацювати як пауза
+        if (acted) e.stopImmediatePropagation();
+      }
+    }
+  });
 
   App.store.load();
   window.addEventListener("hashchange", navigate);

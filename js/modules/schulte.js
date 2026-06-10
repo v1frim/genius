@@ -302,6 +302,8 @@ App.modules.schulte = (function () {
     showIdleOverlay();
     renderSide();
 
+    App.primaryAction = function () { if (!running) { start(); return true; } return false; };
+
     return function cleanup() { stopTimer(); };
   }
 
