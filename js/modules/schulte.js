@@ -1,9 +1,12 @@
-/* Таблиці Шульте: розміри 3×3–7×7, перемішування, зворотний порядок, рекорди */
+/* Таблиці Шульте: розміри 3×3–7×7, перемішування, зворотний порядок, марафон, рекорди */
 window.App = window.App || {};
 App.modules = App.modules || {};
 
 App.modules.schulte = (function () {
   const h = function () { return App.ui.h.apply(null, arguments); };
+
+  const SIZES = [3, 4, 5, 6, 7];
+  const MARATHON_CELLS = SIZES.reduce(function (s, x) { return s + x * x; }, 0); // 135 чисел за коло
 
   function modeKey(opts) {
     return (opts.shuffle ? "s" : "") + (opts.reverse ? "r" : "");
@@ -23,22 +26,8 @@ App.modules.schulte = (function () {
     return (mode.indexOf("s") >= 0 ? "🔀" : "") + (mode.indexOf("r") >= 0 ? "↩" : "");
   }
 
-  /* орієнтири часу під конкретний розмір (ті ж пороги, що й в evaluate) */
-  function benchmarkEl(size) {
-    const n = size * size;
-    return h("div", { class: "tiny", style: "margin-top:10px;line-height:1.9" },
-      h("div", { class: "muted", style: "font-weight:800" }, "Орієнтир для " + size + "×" + size + ":"),
-      h("div", { class: "tier-elite" }, "🏆 < " + Math.round(n * 0.8) + " с — феноменально"),
-      h("div", { class: "tier-great" }, "🔥 < " + Math.round(n * 1.2) + " с — відмінно"),
-      h("div", { class: "tier-good" }, "👍 < " + Math.round(n * 1.8) + " с — добре"),
-      h("div", { class: "tier-mid" }, "⏳ < " + Math.round(n * 2.6) + " с — середньо"),
-      h("div", { class: "tier-slow" }, "повільніше — тренуйся щодня"),
-      h("div", { class: "muted", style: "margin-top:4px" }, "Дивись лише в центр таблиці!"));
-  }
-
-  /* оцінка часу для квадрата size×size */
-  function evaluate(size, ms) {
-    const n = size * size;
+  /* оцінка часу: n — скільки чисел треба знайти */
+  function evaluateN(n, ms) {
     const s = ms / 1000;
     if (s <= n * 0.8) return { text: "Феноменально! 🏆", cls: "tier-elite" };
     if (s <= n * 1.2) return { text: "Відмінно! 🔥", cls: "tier-great" };
@@ -47,14 +36,33 @@ App.modules.schulte = (function () {
     return { text: "Повільно — тренуйся щодня", cls: "tier-slow" };
   }
 
+  function evaluate(size, ms) { return evaluateN(size * size, ms); }
+
+  function evaluateRec(r) {
+    return r.marathon ? evaluateN(MARATHON_CELLS * r.games, r.timeMs) : evaluate(r.size, r.timeMs);
+  }
+
+  /* орієнтири часу (стовпчиком, кожен рівень своїм кольором) */
+  function benchmarkEl(title, n) {
+    return h("div", { class: "tiny", style: "margin-top:10px;line-height:1.9" },
+      h("div", { class: "muted", style: "font-weight:800" }, title),
+      h("div", { class: "tier-elite" }, "🏆 < " + Math.round(n * 0.8) + " с — феноменально"),
+      h("div", { class: "tier-great" }, "🔥 < " + Math.round(n * 1.2) + " с — відмінно"),
+      h("div", { class: "tier-good" }, "👍 < " + Math.round(n * 1.8) + " с — добре"),
+      h("div", { class: "tier-mid" }, "⏳ < " + Math.round(n * 2.6) + " с — середньо"),
+      h("div", { class: "tier-slow" }, "повільніше — тренуйся щодня"),
+      h("div", { class: "muted", style: "margin-top:4px" }, "Дивись лише в центр таблиці!"));
+  }
+
   /* око-якір для центру таблиці (колір як у цифр) */
   const EYE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#4a4458" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3.2" fill="#4a4458" stroke="none"/></svg>';
 
   function render(root) {
     let size = App.store.pref("schulte.size", 5);
     let opts = Object.assign(
-      { shuffle: false, reverse: false, hideFound: true, dot: true, hint: true },
+      { shuffle: false, reverse: false, hideFound: true, dot: true, hint: true, marathon: false },
       App.store.pref("schulte.opts", {}));
+    let marathonGames = App.store.pref("schulte.marathonGames", 3);
 
     let cells = [];      // {num, btn}
     let numberCount = 0; // скільки клітинок із числами (на непарних з оком — на 1 менше)
@@ -64,26 +72,47 @@ App.modules.schulte = (function () {
     let running = false;
     let startTs = 0;
     let timerInt = null;
+    let marathon = null;     // {games, sizeIdx, game, totalMs, totalErrors}
+    let nextTimeout = null;  // авто-перехід між іграми марафону
 
     const timerEl = h("div", { class: "timer-big" }, "0.00 с");
+    const marathonEl = h("div", { class: "yellow", style: "font-weight:800;display:none" });
     const nextEl = h("div", { class: "muted", style: "font-weight:800;font-size:1.1rem;min-width:90px" }, "—");
     const errEl = h("div", { class: "muted", style: "font-weight:800" }, "");
+    const todayEl = h("div", { class: "tiny muted", style: "font-weight:700" });
     const grid = h("div", { class: "schulte-grid" });
     const sidePanel = h("div", { class: "schulte-side" });
 
     function savePrefs() {
       App.store.setPref("schulte.size", size);
       App.store.setPref("schulte.opts", opts);
+      App.store.setPref("schulte.marathonGames", marathonGames);
     }
 
     function stopTimer() {
       if (timerInt) { clearInterval(timerInt); timerInt = null; }
     }
 
+    function clearNext() {
+      if (nextTimeout) { clearTimeout(nextTimeout); nextTimeout = null; }
+    }
+
+    function cancelMarathon() {
+      marathon = null;
+      clearNext();
+      marathonEl.style.display = "none";
+    }
+
     function showOverlay(content) {
       const old = grid.querySelector(".schulte-overlay");
       if (old) old.remove();
       if (content) grid.append(h("div", { class: "schulte-overlay" }, content));
+    }
+
+    function applySize(sz) {
+      size = sz;
+      App.store.setPref("schulte.size", size);
+      buildGrid();
     }
 
     function buildGrid() {
@@ -128,10 +157,30 @@ App.modules.schulte = (function () {
       nextEl.textContent = running ? "шукай: " + seq[seqIdx] : "—";
       if (!opts.hint) nextEl.textContent = running ? "🙈" : "—";
       errEl.textContent = errors ? "помилок: " + errors : "";
+      if (marathon) {
+        marathonEl.style.display = "";
+        marathonEl.textContent = "🏁 " + size + "×" + size + " · гра " + marathon.game + "/" + marathon.games;
+      } else {
+        marathonEl.style.display = "none";
+      }
     }
 
-    function start() {
+    function todayMs() {
+      const today = App.store.todayStr();
+      return App.store.records("schulte").reduce(function (s, r) {
+        return s + (r.date === today ? (r.timeMs || 0) : 0);
+      }, 0);
+    }
+
+    function updateToday() {
+      const ms = todayMs();
+      todayEl.textContent = "🕐 сьогодні в Шульте: " + (ms ? App.ui.fmtClock(ms / 1000) : "00:00");
+    }
+
+    /* запуск одного раунду на поточному розмірі */
+    function startRound() {
       stopTimer();
+      clearNext();
       buildGrid();
       const all = Array.from({ length: numberCount }, function (_, i) { return i + 1; });
       seq = opts.reverse ? all.slice().reverse() : all;
@@ -144,16 +193,24 @@ App.modules.schulte = (function () {
       }, 47);
       showOverlay(null);
       updateInfo();
-      startBtn.textContent = "ЗАНОВО";
       stopBtn.style.display = "";
     }
 
+    function start() {
+      if (opts.marathon) {
+        marathon = { games: marathonGames, sizeIdx: 0, game: 1, totalMs: 0, totalErrors: 0 };
+        applySize(SIZES[0]);
+        renderSide();
+      }
+      startRound();
+    }
+
     function stopRun() {
-      if (!running) return;
+      if (!running && !marathon && !nextTimeout) return;
       running = false;
       stopTimer();
+      cancelMarathon();
       timerEl.textContent = "0.00 с";
-      startBtn.textContent = "СТАРТ";
       stopBtn.style.display = "none";
       buildGrid();
       showIdleOverlay();
@@ -163,9 +220,10 @@ App.modules.schulte = (function () {
     function finish() {
       running = false;
       stopTimer();
-      stopBtn.style.display = "none";
       const ms = performance.now() - startTs;
       timerEl.textContent = App.ui.fmtMs(ms);
+      if (marathon) { finishMarathonGame(ms); return; }
+      stopBtn.style.display = "none";
       const mode = modeKey(opts);
       const prevBest = bestFor(size, mode);
       App.store.addRecord("schulte", { size: size, mode: mode, timeMs: Math.round(ms), errors: errors });
@@ -181,6 +239,68 @@ App.modules.schulte = (function () {
       ]);
       renderSide();
       updateInfo();
+      updateToday();
+    }
+
+    /* завершення однієї гри марафону */
+    function finishMarathonGame(ms) {
+      marathon.totalMs += ms;
+      marathon.totalErrors += errors;
+      const finishedLabel = size + "×" + size;
+      // що далі?
+      if (marathon.game < marathon.games) {
+        marathon.game++;
+      } else if (marathon.sizeIdx < SIZES.length - 1) {
+        marathon.sizeIdx++;
+        marathon.game = 1;
+        applySize(SIZES[marathon.sizeIdx]);
+      } else {
+        finishMarathon();
+        return;
+      }
+      const nextLabel = SIZES[marathon.sizeIdx] + "×" + SIZES[marathon.sizeIdx] + " · гра " + marathon.game + "/" + marathon.games;
+      showOverlay([
+        h("div", { class: "big-num" }, App.ui.fmtMs(ms)),
+        h("div", { class: "muted small" }, finishedLabel + " готово · разом " + App.ui.fmtMs(marathon.totalMs)),
+        h("div", { class: "yellow", style: "font-weight:900" }, "Далі: " + nextLabel),
+        h("button", { class: "btn green", onclick: continueMarathon }, "ДАЛІ (Space)"),
+      ]);
+      updateInfo();
+      nextTimeout = setTimeout(continueMarathon, 1400);
+    }
+
+    function continueMarathon() {
+      if (!marathon) return;
+      clearNext();
+      startRound();
+    }
+
+    function finishMarathon() {
+      const total = Math.round(marathon.totalMs);
+      const totalErrors = marathon.totalErrors;
+      const games = marathon.games;
+      const mode = modeKey(opts);
+      cancelMarathon();
+      stopBtn.style.display = "none";
+      const prevBest = bestMarathon(games, mode);
+      App.store.addRecord("schulte", {
+        marathon: true, games: games, mode: mode,
+        timeMs: total, errors: totalErrors, size: 0,
+      });
+      const isRecord = prevBest === null || total < prevBest;
+      if (isRecord) App.ui.toast("🏆 Рекорд марафону ×" + games + ": " + App.ui.fmtMs(total));
+      const ev = evaluateN(MARATHON_CELLS * games, total);
+      showOverlay([
+        h("div", { style: "font-weight:900;font-size:1.1rem" }, "🏁 Марафон пройдено!"),
+        h("div", { class: "big-num" }, App.ui.fmtMs(total)),
+        h("div", { class: ev.cls, style: "font-weight:800" }, ev.text),
+        h("div", { class: "muted small" }, "3×3 → 7×7, по " + games + " ігор · помилок: " + totalErrors),
+        isRecord ? h("div", { class: "yellow", style: "font-weight:900" }, "🏆 Особистий рекорд!") : null,
+        h("button", { class: "btn green big", onclick: start }, "ЗАНОВО"),
+      ]);
+      renderSide();
+      updateInfo();
+      updateToday();
     }
 
     function onCell(cell) {
@@ -206,33 +326,41 @@ App.modules.schulte = (function () {
     function bestFor(sz, mode) {
       let best = null;
       App.store.records("schulte").forEach(function (r) {
-        if (r.size === sz && (r.mode || "") === mode) {
+        if (!r.marathon && r.size === sz && (r.mode || "") === mode) {
           if (best === null || r.timeMs < best) best = r.timeMs;
         }
       });
       return best;
     }
 
-    const SIZES = [3, 4, 5, 6, 7];
-
-    function setSize(sz) {
-      if (sz === size) return;
-      size = sz; savePrefs();
-      running = false; stopTimer();
-      stopBtn.style.display = "none";
-      buildGrid(); showIdleOverlay(); renderSide(); updateInfo();
-      timerEl.textContent = "0.00 с";
-      startBtn.textContent = "СТАРТ";
+    function bestMarathon(games, mode) {
+      let best = null;
+      App.store.records("schulte").forEach(function (r) {
+        if (r.marathon && r.games === games && (r.mode || "") === mode) {
+          if (best === null || r.timeMs < best) best = r.timeMs;
+        }
+      });
+      return best;
     }
 
-    /* правий Shift — наступний розмір, лівий — попередній */
+    function setSize(sz) {
+      if (sz === size && !marathon) return;
+      cancelMarathon();
+      running = false; stopTimer();
+      stopBtn.style.display = "none";
+      size = sz; savePrefs();
+      buildGrid(); showIdleOverlay(); renderSide(); updateInfo();
+      timerEl.textContent = "0.00 с";
+    }
+
+    /* лівий Shift — наступний розмір, правий — попередній */
     function onShift(e) {
       if (e.key !== "Shift") return;
       const tag = ((e.target && e.target.tagName) || "").toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") return;
       const i = SIZES.indexOf(size);
-      if (e.code === "ShiftRight") setSize(SIZES[(i + 1) % SIZES.length]);
-      else if (e.code === "ShiftLeft") setSize(SIZES[(i - 1 + SIZES.length) % SIZES.length]);
+      if (e.code === "ShiftLeft") setSize(SIZES[(i + 1) % SIZES.length]);
+      else if (e.code === "ShiftRight") setSize(SIZES[(i - 1 + SIZES.length) % SIZES.length]);
     }
 
     function renderSide() {
@@ -251,7 +379,7 @@ App.modules.schulte = (function () {
           type: "checkbox",
           onchange: function () {
             opts[key] = cb.checked; savePrefs();
-            if (!running && (key === "dot")) { buildGrid(); showIdleOverlay(); }
+            if (!running && (key === "dot" || key === "marathon")) { buildGrid(); showIdleOverlay(); }
             updateInfo();
             renderSide();
           },
@@ -259,6 +387,25 @@ App.modules.schulte = (function () {
         cb.checked = !!opts[key];
         return h("label", { class: "opt", title: hintText || "" }, cb, label);
       }
+
+      /* повзунок кількості ігор на розмір у марафоні */
+      const gamesVal = h("span", { class: "yellow", style: "font-weight:900" }, "×" + marathonGames);
+      const gamesRange = h("input", { type: "range", min: 2, max: 10, step: 1, style: "flex:1" });
+      gamesRange.value = marathonGames;
+      gamesRange.addEventListener("input", function () {
+        marathonGames = parseInt(gamesRange.value, 10);
+        gamesVal.textContent = "×" + marathonGames;
+      });
+      gamesRange.addEventListener("change", function () {
+        savePrefs();
+        renderSide();
+      });
+      const marathonRow = h("div", {
+        class: "row",
+        style: "gap:10px;margin-top:4px;padding-left:26px;" + (opts.marathon ? "" : "display:none"),
+      },
+        h("span", { class: "tiny muted", style: "font-weight:700" }, "ігор на розмір:"),
+        gamesRange, gamesVal);
 
       sidePanel.append(h("div", { class: "card" },
         h("h2", null, "Налаштування"),
@@ -268,41 +415,54 @@ App.modules.schulte = (function () {
           optToggle("reverse", "Зворотний порядок", "Шукай від найбільшого до 1"),
           optToggle("hideFound", "Затемнювати знайдені"),
           optToggle("dot", "Око в центрі", "Дивись на око в центрі, числа шукай периферійним зором"),
-          optToggle("hint", "Показувати наступне число")),
+          optToggle("hint", "Показувати наступне число"),
+          optToggle("marathon", "Марафон 3×3 → 7×7", "Проходиш усі розміри по черзі, по N ігор на кожному. Результат — сумарний час."),
+          marathonRow),
         h("div", { class: "tiny muted", style: "margin-top:10px" },
-          "Shift праворуч / ліворуч — наступний / попередній розмір · Space — старт")));
+          "Shift лівий / правий — наступний / попередній розмір · Space — старт")));
 
-      const best = bestFor(size, modeKey(opts));
       const recent = App.store.records("schulte").slice(-8).reverse();
       const tbl = h("table", { class: "results" },
         h("tr", null, h("th", null, "Розмір"), h("th", null, "Режим"), h("th", null, "Час"), h("th", null, "Пом."), h("th", null, "Дата")),
         recent.map(function (r) {
           return h("tr", null,
-            h("td", null, r.size + "×" + r.size),
-            h("td", { title: modeLabel(r.mode || "") }, modeShort(r.mode || "")),
-            h("td", { class: evaluate(r.size, r.timeMs).cls, style: "font-weight:800" }, App.ui.fmtMs(r.timeMs)),
+            h("td", null, r.marathon ? "3→7" : r.size + "×" + r.size),
+            h("td", { title: (r.marathon ? "марафон ×" + r.games + " · " : "") + modeLabel(r.mode || "") },
+              (r.marathon ? "🏁×" + r.games : modeShort(r.mode || "")) + (r.marathon && r.mode ? " " + modeShort(r.mode) : "")),
+            h("td", { class: evaluateRec(r).cls, style: "font-weight:800" }, App.ui.fmtMs(r.timeMs)),
             h("td", null, String(r.errors)),
             h("td", null, App.ui.fmtDate(r.date)));
         }));
 
+      const flags = modeKey(opts);
+      const headLabel = opts.marathon
+        ? "Марафон ×" + marathonGames + " · " + modeLabel(flags)
+        : size + "×" + size + " · " + modeLabel(flags);
+      const headBest = opts.marathon ? bestMarathon(marathonGames, flags) : bestFor(size, flags);
+
       sidePanel.append(h("div", { class: "card" },
         h("h2", null, "Результати"),
         h("div", { class: "row between", style: "margin-bottom:10px" },
-          h("div", { class: "muted", style: "font-weight:700" }, size + "×" + size + " · " + modeLabel(modeKey(opts))),
-          h("div", { class: "yellow", style: "font-weight:900;font-size:1.1rem" }, best ? App.ui.fmtMs(best) : "—")),
+          h("div", { class: "muted", style: "font-weight:700" }, headLabel),
+          h("div", { class: "yellow", style: "font-weight:900;font-size:1.1rem" }, headBest ? App.ui.fmtMs(headBest) : "—")),
         recent.length ? tbl : h("div", { class: "muted small" }, "Зіграй першу таблицю — результати з'являться тут."),
-        benchmarkEl(size)));
+        opts.marathon
+          ? benchmarkEl("Орієнтир для марафону ×" + marathonGames + ":", MARATHON_CELLS * marathonGames)
+          : benchmarkEl("Орієнтир для " + size + "×" + size + ":", size * size)));
     }
 
     function showIdleOverlay() {
-      showOverlay([
+      showOverlay(opts.marathon ? [
+        h("div", { style: "font-weight:800;font-size:1.15rem" }, "🏁 Марафон: 3×3 → 7×7"),
+        h("div", { class: "muted small" }, "По " + marathonGames + " ігор на кожен розмір. Результат — сумарний час."),
+        h("button", { class: "btn green big", onclick: start }, "СТАРТ"),
+      ] : [
         h("div", { style: "font-weight:800;font-size:1.15rem" }, "Знайди всі числа " + (opts.reverse ? "від більшого до 1" : "по порядку")),
         h("div", { class: "muted small" }, "Тримай погляд у центрі. Час пішов після кліку на старт."),
         h("button", { class: "btn green big", onclick: start }, "СТАРТ"),
       ]);
     }
 
-    const startBtn = h("button", { class: "btn green big", onclick: start }, "СТАРТ");
     const stopBtn = h("button", { class: "btn ghost", style: "display:none", onclick: stopRun }, "СТОП");
 
     root.append(
@@ -311,20 +471,28 @@ App.modules.schulte = (function () {
       h("div", { class: "schulte-wrap fade-in" },
         h("div", { class: "schulte-stage" },
           h("div", { class: "schulte-hud" },
-            timerEl, nextEl, errEl,
-            h("div", { class: "row", style: "margin-top:8px" }, startBtn, stopBtn)),
+            timerEl, marathonEl, nextEl, errEl,
+            h("div", { class: "row", style: "margin-top:8px" }, stopBtn),
+            todayEl),
           grid),
         sidePanel));
 
     buildGrid();
     showIdleOverlay();
     renderSide();
+    updateToday();
 
-    App.primaryAction = function () { if (!running) { start(); return true; } return false; };
+    App.primaryAction = function () {
+      if (running) return false;
+      if (marathon && nextTimeout) { continueMarathon(); return true; } // пропустити паузу між іграми
+      if (!marathon) { start(); return true; }
+      return false;
+    };
     document.addEventListener("keydown", onShift);
 
     return function cleanup() {
       stopTimer();
+      clearNext();
       document.removeEventListener("keydown", onShift);
     };
   }
