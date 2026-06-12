@@ -40,6 +40,7 @@ App.modules.twisters = (function () {
     let mode = App.store.pref("twisters.mode", "collection"); // collection | generator
     let diff = App.store.pref("twisters.diff", 0);
     let order = [];
+    let shownTs = performance.now();
     let orderPos = 0;
     let current = null;
 
@@ -73,6 +74,7 @@ App.modules.twisters = (function () {
     function show() {
       display.textContent = current.text;
       diffEl.textContent = current.generated ? "🎲 згенеровано" : "складність: " + "●".repeat(current.diff) + "○".repeat(3 - current.diff);
+      shownTs = performance.now();
       updateCounter();
     }
 
@@ -87,6 +89,8 @@ App.modules.twisters = (function () {
       st.twisterTotal++;
       const today = App.store.todayStr();
       st.twisterByDay[today] = (st.twisterByDay[today] || 0) + 1;
+      // зіграний час = скільки скоромовка була на екрані до «прочитав» (стеля 4 хв)
+      App.store.addTime("twisters", Math.min(performance.now() - shownTs, 240000));
       App.store.save();
       if ((st.twisterByDay[today]) === 5) App.ui.toast("👄 5 скоромовок сьогодні — задачу виконано!");
       next();

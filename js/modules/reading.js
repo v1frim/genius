@@ -362,7 +362,6 @@ App.modules.reading = (function () {
 
     function tick() {
       if (!running || paused) return;
-      if (App.markActive) App.markActive(); // RSVP пасивний — тримаємо лічильник часу активним
       if (idx >= tokens.length) { finish(); return; }
       showChunk();
       const slice = tokens.slice(idx, idx + chunk);
@@ -497,6 +496,7 @@ App.modules.reading = (function () {
       if (saveIt && idx > 20) {
         const minutes = activeMs / 60000;
         const avg = Math.round(Math.min(idx, tokens.length) / Math.max(minutes, 0.01));
+        App.store.addTime("reading", activeMs); // частково прочитане теж зіграний час
         saveRecord(avg, Math.min(idx, tokens.length), Math.round(activeMs / 1000), null);
       }
     }
@@ -506,6 +506,7 @@ App.modules.reading = (function () {
       const minutes = activeMs / 60000;
       const avg = Math.round(wordsRead / Math.max(minutes, 0.01));
       const seconds = Math.round(activeMs / 1000);
+      App.store.addTime("reading", activeMs);
       stopAll(false);
       wordEl.innerHTML = "";
       wordEl.append(h("span", { style: "flex:1;text-align:center;font-size:1.4rem" },
@@ -775,6 +776,7 @@ App.modules.reading = (function () {
         const comp = Math.round(correct / t.questions.length * 100);
         const eff = Math.round(wpm * comp / 100);
         const prevBest = bestTestWpm();
+        App.store.addTime("reading", readMs);
         App.store.addRecord("reading", { kind: "test", wpm: wpm, comp: comp, effWpm: eff, words: wcount, textId: t.id, seconds: Math.round(readMs / 1000) });
         if (prevBest === null || wpm > prevBest) App.ui.toast("🏆 Новий рекорд читання: " + wpm + " сл/хв");
         box.append(h("div", { class: "card", style: "text-align:center" },

@@ -124,19 +124,20 @@ App.store = (function () {
     return val;
   }
 
-  /* час, приділений розділу за день. Накопичується в пам'яті; save() викликає викликач (роутер). */
+  /* зіграний час у розділі за день (сума тривалостей завершених ігор) */
   function addTime(cat, ms) {
     if (!ms || ms < 0) return;
     if (!state.timeByDay) state.timeByDay = {};
     const d = todayStr();
     if (!state.timeByDay[d]) state.timeByDay[d] = {};
-    state.timeByDay[d][cat] = (state.timeByDay[d][cat] || 0) + ms;
+    state.timeByDay[d][cat] = (state.timeByDay[d][cat] || 0) + Math.round(ms);
     // прибираємо записи, старші ~120 днів
     const keys = Object.keys(state.timeByDay);
     if (keys.length > 140) {
       keys.sort();
       keys.slice(0, keys.length - 140).forEach(function (k) { delete state.timeByDay[k]; });
     }
+    save();
   }
 
   function timeToday(cat) {
