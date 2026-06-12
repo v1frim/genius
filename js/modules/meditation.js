@@ -56,6 +56,7 @@ App.modules.meditation = (function () {
 
     function pacerTick() {
       if (!pacerRunning) return;
+      if (App.markActive) App.markActive();
       phaseLeft--;
       if (phaseLeft <= 0) { nextPhase(); return; }
       circle.textContent = String(phaseLeft);
@@ -127,6 +128,7 @@ App.modules.meditation = (function () {
     const sessClock = h("div", { class: "big-num", style: "font-variant-numeric:tabular-nums" }, "00:00");
 
     function sessTick() {
+      if (App.markActive) App.markActive(); // пасивна сесія — тримаємо лічильник часу активним
       sessClock.textContent = App.ui.fmtClock((performance.now() - sessStart) / 1000);
     }
 

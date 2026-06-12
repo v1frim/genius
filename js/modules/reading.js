@@ -35,12 +35,87 @@ App.modules.reading = (function () {
     return out;
   }
 
-  /* слово для пропуску: не перше в реченні, від 5 літер */
-  function pickClozeWord(sentence) {
+  /* слово для пропуску: не перше в реченні, з малої, від 5 літер.
+     Перевага словам, для яких є дистрактори зі схожим закінченням (менш вгадуваний варіант). */
+  function pickClozeWord(sentence, dWords) {
     const first = (sentence.trim().split(/\s+/)[0] || "").toLowerCase();
     const cand = (sentence.match(/[А-Яа-яҐґЄєІіЇї'’]{5,}/g) || [])
       .filter(function (w) { return w.toLowerCase() !== first && w[0] === w[0].toLowerCase(); });
-    return cand.length ? App.ui.rnd(cand) : null;
+    if (!cand.length) return null;
+    if (dWords && dWords.length) {
+      const good = cand.filter(function (w) {
+        const end = w.toLowerCase().slice(-2);
+        return dWords.filter(function (x) {
+          return x.toLowerCase() !== w.toLowerCase() && x.toLowerCase().slice(-2) === end;
+        }).length >= 2;
+      });
+      if (good.length) return App.ui.rnd(good);
+    }
+    return App.ui.rnd(cand);
+  }
+
+  /* власні назви: слова з великої літери НЕ на початку речення (імена, міста, річки) */
+  function properNouns(text) {
+    if (!text) return [];
+    const seen = {}, out = [];
+    (text.match(/(?<=[^.!?…«"'’(\n]\s)[А-ЯҐЄІЇ][а-яґєіїʼ'’-]{2,}/g) || []).forEach(function (w) {
+      const k = w.toLowerCase();
+      if (!seen[k]) { seen[k] = true; out.push(w); }
+    });
+    return out;
+  }
+
+  /* «про кого йшлося», коли власних назв немає */
+  const SUBJECTS = [
+    { label: "хлопчик або юнак", re: /хлопч|хлопец|хлопц|парубок|\bюнак|юнк/gi },
+    { label: "дівчина або дівчинка", re: /дівчин|дівча|\bдівк/gi },
+    { label: "дідусь або старий чоловік", re: /\bдід\b|дідус|\bстарий\b|старець|\bстарого\b/gi },
+    { label: "бабуся або стара жінка", re: /бабус|\bбаба\b|\bстара\b/gi },
+    { label: "жінка або мати", re: /жінк|жінц|\bмати\b|матір|\bмама\b|\bмами\b/gi },
+    { label: "чоловік або батько", re: /чоловік|\bбатьк/gi },
+    { label: "кіт або собака", re: /\bкіт\b|\bкота\b|\bкоти\b|собак|\bпес\b|\bпса\b|цуцен|кошен/gi },
+    { label: "дитина", re: /дитин|\bмалюк/gi },
+  ];
+
+  function subjectQuestion(text) {
+    const counts = SUBJECTS.map(function (s) {
+      const m = text.match(s.re);
+      return { label: s.label, n: m ? m.length : 0 };
+    });
+    const present = counts.filter(function (c) { return c.n > 0; }).sort(function (a, b) { return b.n - a.n; });
+    if (!present.length) return null;
+    const correct = present[0].label;
+    const presentLabels = present.map(function (c) { return c.label; });
+    const absent = App.ui.shuffle(SUBJECTS.map(function (s) { return s.label; })
+      .filter(function (l) { return presentLabels.indexOf(l) < 0; }));
+    let ds = absent.slice(0, 2);
+    if (ds.length < 2) {
+      ds = ds.concat(App.ui.shuffle(presentLabels.filter(function (l) { return l !== correct; })).slice(0, 2 - ds.length));
+    }
+    if (ds.length < 2) return null;
+    return mkQuestion("Про кого здебільшого йшлося в тексті?", correct, ds);
+  }
+
+  /* питання про дійову особу: ім'я/назва або «про кого» */
+  function whoQuestion(read) {
+    const mine = properNouns(read.text);
+    if (mine.length) {
+      const dpn = App.ui.shuffle(properNouns(read.distractorText || "").filter(function (w) {
+        return mine.every(function (m) { return m.toLowerCase() !== w.toLowerCase(); });
+      }));
+      if (dpn.length >= 2) {
+        return mkQuestion("Чиє ім'я або яка назва згадувались у тексті?", App.ui.rnd(mine), dpn.slice(0, 2));
+      }
+    }
+    return subjectQuestion(read.text);
+  }
+
+  function clozeQuestion(sentence, dWords) {
+    const word = pickClozeWord(sentence, dWords);
+    if (!word) return null;
+    const ds = pickDistractors(word, dWords, 2);
+    if (ds.length < 2) return null;
+    return mkQuestion("Яке слово пропущено: «" + clipAround(sentence.replace(word, "___"), 150) + "»", word, ds);
   }
 
   /* дистрактори зі схожим закінченням (граматично правдоподібні), потім будь-які */
@@ -89,51 +164,45 @@ App.modules.reading = (function () {
       .filter(function (s) { return s.length >= 35 && s.length <= 170 && /\s/.test(s); });
   }
 
-  /* Генерує до 3 питань: пізнавання речення + заповнення пропуску (cloze).
-     Cloze («яке слово пропущено») тренує розуміння, а не зубріння всіх слів. */
+  /* 3 питання різного стилю: пізнавання речення + cloze + про дійову особу. */
   function buildQuiz(read) {
-    const qs = [];
+    const out = [];
     const dText = read.distractorText || "";
     const mine = App.ui.shuffle(sentences(read.text));
     const others = App.ui.shuffle(sentences(dText));
     const dWords = poolWords(dText);
-    const usedSent = {};
 
-    // заголовок (лише для Вікіпедії)
-    if (read.titles && read.titles.length >= 1 && read.distractorTitles && read.distractorTitles.length >= 2) {
-      qs.push(mkQuestion("Стаття з яким заголовком була серед прочитаних?",
-        App.ui.rnd(read.titles), read.distractorTitles.slice(0, 2)));
-    }
-
-    // 1 питання на пізнавання речення
+    // 1) пізнавання речення
     if (mine.length && others.length >= 2) {
-      usedSent[0] = true;
-      qs.push(mkQuestion("Яке речення було в тексті?",
+      out.push(mkQuestion("Яке речення було в тексті?",
         clip(mine[0], 150), [clip(others[0], 150), clip(others[1], 150)]));
     }
 
-    // решта — cloze: пропусти слово в реальному реченні
-    for (let i = 1; i < mine.length && qs.length < 4; i++) {
-      const s = mine[i];
-      const word = pickClozeWord(s);
-      if (!word) continue;
-      const ds = pickDistractors(word, dWords, 2);
-      if (ds.length < 2) continue;
-      qs.push(mkQuestion("Яке слово пропущено: «" + clipAround(s.replace(word, "___"), 150) + "»", word, ds));
-    }
+    // 2) cloze — пропуск слова (одне)
+    let cloze = null;
+    for (let i = 1; i < mine.length && !cloze; i++) cloze = clozeQuestion(mine[i], dWords);
+    if (cloze) out.push(cloze);
 
-    // запасний варіант — число з тексту (якщо взагалі є й бракує питань)
-    if (qs.length < 3) {
+    // 3) про дійову особу: ім'я/назва або «про кого йшлося»
+    const who = whoQuestion(read);
+    if (who) out.push(who);
+
+    // добиваємо до 3, якщо чогось забракло
+    for (let i = 1; i < mine.length && out.length < 3; i++) {
+      const cz = clozeQuestion(mine[i], dWords);
+      if (cz && !out.some(function (q) { return q.q === cz.q; })) out.push(cz);
+    }
+    if (out.length < 3) {
       const numSents = mine.filter(function (s) { return /\d{2,4}/.test(s); });
       if (numSents.length) {
         const s = App.ui.rnd(numSents);
         const num = s.match(/\d{2,4}/)[0];
-        qs.push(mkQuestion("Яке число пропущено: «" + clipAround(s.replace(num, "___"), 150) + "»",
+        out.push(mkQuestion("Яке число пропущено: «" + clipAround(s.replace(num, "___"), 150) + "»",
           num, numDistractors(parseInt(num, 10))));
       }
     }
 
-    return qs.slice(0, 3);
+    return out.slice(0, 3);
   }
 
   /* ---------- RSVP ---------- */
@@ -152,6 +221,7 @@ App.modules.reading = (function () {
     let orpOn = App.store.pref("rsvp.orp", false);
     let lenId = App.store.pref("rsvp.len", "m");
     let quizOn = App.store.pref("rsvp.quiz", true);
+    let adaptOn = App.store.pref("rsvp.adapt", false);
     let src = App.store.pref("rsvp.src", "prose"); // "prose" | "wiki"
 
     let tokens = [];
@@ -292,6 +362,7 @@ App.modules.reading = (function () {
 
     function tick() {
       if (!running || paused) return;
+      if (App.markActive) App.markActive(); // RSVP пасивний — тримаємо лічильник часу активним
       if (idx >= tokens.length) { finish(); return; }
       showChunk();
       const slice = tokens.slice(idx, idx + chunk);
@@ -494,7 +565,21 @@ App.modules.reading = (function () {
           const eff = Math.round(avg * comp / 100);
           resultLine.append("Розуміння: " + correct + "/" + qs.length + " (" + comp + "%) · ефективна швидкість " + eff + " сл/хв");
           saveRecord(avg, wordsRead, seconds, comp);
-          App.ui.toast("Збережено: " + avg + " сл/хв · розуміння " + comp + "%");
+          // режим адаптації: 0 помилок → +10, 1 → 0, 2 → −10, 3 → −20 сл/хв на наступний текст
+          if (adaptOn) {
+            const wrong = qs.length - correct;
+            const delta = (1 - wrong) * 10;
+            if (delta !== 0) {
+              const before = wpm;
+              setWpm(wpm + delta);
+              App.store.setPref("rsvp.wpm", wpm);
+              App.ui.toast("📈 Адаптація: " + before + " → " + wpm + " сл/хв");
+            } else {
+              App.ui.toast("Адаптація: темп лишається " + wpm + " сл/хв");
+            }
+          } else {
+            App.ui.toast("Збережено: " + avg + " сл/хв · розуміння " + comp + "%");
+          }
           againBtn.style.display = "";
         },
       }, "ПЕРЕВІРИТИ");
@@ -534,9 +619,20 @@ App.modules.reading = (function () {
       onchange: function () {
         quizOn = quizCb.checked;
         App.store.setPref("rsvp.quiz", quizOn);
+        if (!quizOn && adaptOn) { adaptOn = false; adaptCb.checked = false; App.store.setPref("rsvp.adapt", false); }
       },
     });
     quizCb.checked = quizOn;
+
+    const adaptCb = h("input", {
+      type: "checkbox",
+      onchange: function () {
+        adaptOn = adaptCb.checked;
+        App.store.setPref("rsvp.adapt", adaptOn);
+        if (adaptOn && !quizOn) { quizOn = true; quizCb.checked = true; App.store.setPref("rsvp.quiz", true); }
+      },
+    });
+    adaptCb.checked = adaptOn;
 
     root.append(
       h("div", { class: "card" },
@@ -555,7 +651,11 @@ App.modules.reading = (function () {
           h("label", {
             class: "opt",
             title: "Після тексту — 3 питання, згенеровані з прочитаного",
-          }, quizCb, "Питання після тексту")),
+          }, quizCb, "Питання після тексту"),
+          h("label", {
+            class: "opt",
+            title: "Темп наступного тексту росте за безпомилкові відповіді: 0 помилок +10, 1 помилка 0, 2 помилки −10, 3 помилки −20 сл/хв",
+          }, adaptCb, "Адаптація темпу")),
         wikiInfo),
       h("div", { class: "card" },
         stage, prog, statusEl,

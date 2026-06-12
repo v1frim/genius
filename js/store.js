@@ -34,6 +34,7 @@ App.store = (function () {
       goals: null,          // заповнюється з App.data.defaultGoals
       twisterTotal: 0,
       twisterByDay: {},     // {'YYYY-MM-DD': count}
+      timeByDay: {},        // {'YYYY-MM-DD': {schulte: ms, reading: ms, ...}} — час у розділах
       prefs: {},            // налаштування модулів (wpm, рівень тощо)
     };
   }
@@ -123,6 +124,27 @@ App.store = (function () {
     return val;
   }
 
+  /* час, приділений розділу за день. Накопичується в пам'яті; save() викликає викликач (роутер). */
+  function addTime(cat, ms) {
+    if (!ms || ms < 0) return;
+    if (!state.timeByDay) state.timeByDay = {};
+    const d = todayStr();
+    if (!state.timeByDay[d]) state.timeByDay[d] = {};
+    state.timeByDay[d][cat] = (state.timeByDay[d][cat] || 0) + ms;
+    // прибираємо записи, старші ~120 днів
+    const keys = Object.keys(state.timeByDay);
+    if (keys.length > 140) {
+      keys.sort();
+      keys.slice(0, keys.length - 140).forEach(function (k) { delete state.timeByDay[k]; });
+    }
+  }
+
+  function timeToday(cat) {
+    const d = state.timeByDay && state.timeByDay[todayStr()];
+    if (!d) return 0;
+    return cat ? (d[cat] || 0) : Object.keys(d).reduce(function (s, k) { return s + d[k]; }, 0);
+  }
+
   function pref(key, fallback) {
     return state.prefs[key] !== undefined ? state.prefs[key] : fallback;
   }
@@ -160,6 +182,8 @@ App.store = (function () {
     best: best,
     pref: pref,
     setPref: setPref,
+    addTime: addTime,
+    timeToday: timeToday,
     todayStr: todayStr,
     mondayStr: mondayStr,
     dateStr: dateStr,
