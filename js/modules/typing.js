@@ -174,13 +174,15 @@ App.modules.typing = (function () {
     }
 
     function finish() {
+      const elapsed = elapsedMs(); // зчитати ДО finished=true, інакше живий відрізок обнулиться
       finished = true;
-      const m = Math.max(elapsedMs() / 60000, 1 / 60);
+      const m = Math.max(elapsed / 60000, 1 / 60);
       const cpm = Math.round(chars.length / m);
       const wordCount = text.split(/\s+/).length;
       const wpm = Math.round(wordCount / m);
       const acc = totalKeys ? Math.round((totalKeys - wrongKeys) / totalKeys * 100) : 100;
       const prevBest = App.store.best("typing", "cpm", "max");
+      App.store.addTime("typing", elapsed);
       App.store.addRecord("typing", { cpm: cpm, wpm: wpm, accuracy: acc, errors: wrongKeys, chars: chars.length, source: sourceId });
       if (prevBest === null || cpm > prevBest) App.ui.toast("🏆 Новий рекорд друку: " + cpm + " зн/хв");
       progFill.style.width = "100%";

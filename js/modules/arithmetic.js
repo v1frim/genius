@@ -183,6 +183,7 @@ App.modules.arithmetic = (function () {
       const seconds = Math.round((performance.now() - startTs) / 1000);
       const total = correct + wrong + skipped;
       const prevBest = bestFor(modeId, level);
+      App.store.addTime("arithmetic", performance.now() - startTs);
       App.store.addRecord("arithmetic", {
         mode: modeId, level: level, ops: ops.join(""),
         correct: correct, wrong: wrong, skipped: skipped, seconds: seconds,

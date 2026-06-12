@@ -44,24 +44,20 @@
     const pct = App.modules.dashboard.todayPct();
     el.append(
       h("div", { class: "streak-mini" }, "🔥 " + streak + " дн. · " + pct + "%"),
-      h("div", { id: "totalTime", class: "total-time" }, "⏱ всього сьогодні: " + App.ui.fmtClock(App.store.timeToday() / 1000)),
+      h("div", { id: "totalTime", class: "total-time" }, "⏱ зіграно сьогодні: " + App.ui.fmtClock(App.store.timeToday() / 1000)),
       h("div", null, "тренуйся щодня"));
   };
 
   function refreshTotalTime() {
     const el = document.getElementById("totalTime");
-    if (el) el.textContent = "⏱ всього сьогодні: " + App.ui.fmtClock(App.store.timeToday() / 1000);
+    if (el) el.textContent = "⏱ зіграно сьогодні: " + App.ui.fmtClock(App.store.timeToday() / 1000);
   }
 
-  /* ---- облік часу, приділеного розділу за сьогодні ---- */
+  /* ---- зіграний час за сьогодні (сума тривалостей завершених ігор/сесій) ----
+     Модулі додають час через App.store.addTime(розділ, ms) у момент завершення гри.
+     Тут лише періодично оновлюємо бейдж розділу та суму в сайдбарі. */
+  const TRAINER_IDS = ["schulte", "reading", "typing", "twisters", "arithmetic", "memory", "meditation"];
   let timeInt = null;
-  let lastActivity = Date.now();
-  let saveTick = 0;
-  ["mousemove", "keydown", "mousedown", "touchstart", "wheel"].forEach(function (ev) {
-    document.addEventListener(ev, function () { lastActivity = Date.now(); }, { passive: true });
-  });
-  // пасивні розділи (RSVP, медитація) пінгують активність, щоб лічильник часу не засинав
-  App.markActive = function () { lastActivity = Date.now(); };
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) App.store.save();
   });
@@ -78,21 +74,20 @@
   }
 
   function renderTimeBadge() {
-    const ms = App.store.timeToday(currentId());
-    timeBadge().textContent = "⏱ сьогодні в розділі: " + App.ui.fmtClock(ms / 1000);
+    const badge = timeBadge();
+    const id = currentId();
+    if (TRAINER_IDS.indexOf(id) < 0) { badge.style.display = "none"; return; }
+    badge.style.display = "";
+    badge.textContent = "⏱ зіграно сьогодні: " + App.ui.fmtClock(App.store.timeToday(id) / 1000);
   }
 
   function startSectionTimer() {
     if (timeInt) clearInterval(timeInt);
     renderTimeBadge();
     timeInt = setInterval(function () {
-      if (document.hidden) return;
-      if (Date.now() - lastActivity > 120000) return; // простій > 2 хв — не рахуємо
-      App.store.addTime(currentId(), 1000);
       renderTimeBadge();
       refreshTotalTime();
-      if (++saveTick % 8 === 0) App.store.save(); // зберігаємо раз на ~8 с
-    }, 1000);
+    }, 1500);
   }
 
   function navigate() {

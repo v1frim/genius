@@ -15,6 +15,7 @@ App.modules.memory = (function () {
     let bestLen = 0;
     let digits = "";
     let timeouts = [];
+    let sessionStart = 0;
 
     const box = h("div");
 
@@ -54,6 +55,7 @@ App.modules.memory = (function () {
         h("button", {
           class: "btn green big", onclick: function () {
             len = 4; round = 0; bestLen = 0;
+            sessionStart = performance.now();
             playRound();
           },
         }, "СТАРТ")));
@@ -110,6 +112,7 @@ App.modules.memory = (function () {
 
     function finishSession() {
       clearTimeouts();
+      if (sessionStart) { App.store.addTime("memory", performance.now() - sessionStart); sessionStart = 0; }
       const prevBest = App.store.best("digitSpan", "best", "max");
       App.store.addRecord("digitSpan", { best: bestLen, mode: reverse ? "rev" : "fwd" });
       if (bestLen && (prevBest === null || bestLen > prevBest)) {
@@ -149,6 +152,7 @@ App.modules.memory = (function () {
     let level = 1;
     let lives = 3;
     let timeouts = [];
+    let gameStart = 0;
     const box = h("div");
 
     function later(fn, ms) { timeouts.push(setTimeout(fn, ms)); }
@@ -174,7 +178,10 @@ App.modules.memory = (function () {
           "На мить підсвітяться клітинки — запам'ятай їх і відтвори кліками. " +
           "З кожним рівнем клітинок більше. 3 життя. Це тренування «фотографічного» погляду."),
         best ? h("div", { class: "yellow", style: "font-weight:900;margin-bottom:12px" }, "Твій рекорд: рівень " + best) : null,
-        h("button", { class: "btn green big", onclick: playRound }, "СТАРТ")));
+        h("button", {
+          class: "btn green big",
+          onclick: function () { gameStart = performance.now(); playRound(); },
+        }, "СТАРТ")));
     }
 
     function playRound() {
@@ -237,6 +244,7 @@ App.modules.memory = (function () {
 
     function finishSession() {
       clearTimeouts();
+      if (gameStart) { App.store.addTime("memory", performance.now() - gameStart); gameStart = 0; }
       const best = level;
       const prevBest = App.store.best("visualMemory", "best", "max");
       App.store.addRecord("visualMemory", { best: best });

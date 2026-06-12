@@ -42,11 +42,20 @@ js/app.js           — роутер (#/id), навігація, глобаль�
 
 ### Ключові механіки
 
-- **Час на розділ за сьогодні**: `store.timeByDay[date][sectionId]=ms`; роутер (app.js) щосекунди
-  додає 1 с активному розділу (пауза при document.hidden або простої >2 хв) і малює бейдж
-  `#sectionTime` (fixed top-right). Пасивні розділи (RSVP, медитація) пінгують `App.markActive()`,
-  щоб лічильник не засинав без кліків. `store.timeToday()` без аргументу = сума по всіх розділах;
-  показується в сайдбарі (#totalTime «⏱ всього сьогодні», оновлюється щосекунди в тіку роутера). Зберігається в localStorage ~раз на 8 с + на
+- **ЗІГРАНИЙ час за сьогодні** (НЕ присутність на сайті — користувач явно відмовився від
+  presence-обліку): `store.timeByDay[date][sectionId]=ms`; модулі викликають
+  `App.store.addTime(розділ, ms)` У МОМЕНТ ЗАВЕРШЕННЯ гри/сесії з реальною тривалістю:
+  schulte — finish/finishMarathonGame (ms гри); reading — finish (activeMs), частковий стоп
+  Esc (activeMs), тест (readMs); typing — finish (elapsed; УВАГА: зчитувати elapsedMs() ДО
+  finished=true, інакше живий відрізок обнуляється — був баг); arithmetic — finish;
+  memory — обидві гри міряють сесію від СТАРТ до finishSession; twisters — час показу
+  скоромовки до «прочитав ×3» (стеля 4 хв); meditation — addEntry (minutes×60000).
+  Роутер лише малює: бейдж `#sectionTime` «⏱ зіграно сьогодні» (top-right, ХОВАЄТЬСЯ на
+  не-тренажерах — TRAINER_IDS у app.js) і суму в сайдбарі #totalTime «⏱ зіграно сьогодні»
+  (`store.timeToday()` без аргументу = сума), оновлення інтервалом 1.5 с. У Шульте додатково
+  відновлено рядок у hud «🕐 сьогодні в Шульте» (updateToday через updateInfo).
+  CSS: .schulte-grid { flex-shrink:0 } і .schulte-hud { width:150px } — інакше довгий текст
+  hud стискає сітку (був регрес 620→486). Зберігається в localStorage ~раз на 8 с + на
   visibilitychange/beforeunload. УВАГА для тестів: через beforeunload-save шаблон «правити
   localStorage напряму + reload» більше НЕ працює (старий стан клобрить правку) — у тестах
   став префи через `App.store.setPref(...)` і навігуй через `location.hash` без reload.

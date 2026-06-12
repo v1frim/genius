@@ -79,6 +79,7 @@ App.modules.schulte = (function () {
     const marathonEl = h("div", { class: "yellow", style: "font-weight:800;display:none" });
     const nextEl = h("div", { class: "muted", style: "font-weight:800;font-size:1.1rem;min-width:90px" }, "—");
     const errEl = h("div", { class: "muted", style: "font-weight:800" }, "");
+    const todayEl = h("div", { class: "tiny muted", style: "font-weight:700" });
     const grid = h("div", { class: "schulte-grid" });
     const sidePanel = h("div", { class: "schulte-side" });
 
@@ -162,6 +163,13 @@ App.modules.schulte = (function () {
       } else {
         marathonEl.style.display = "none";
       }
+      updateToday();
+    }
+
+    /* зіграний час у Шульте за сьогодні (сума тривалостей завершених ігор) */
+    function updateToday() {
+      const ms = App.store.timeToday("schulte");
+      todayEl.textContent = "🕐 сьогодні в Шульте: " + App.ui.fmtClock(ms / 1000);
     }
 
     /* запуск одного раунду на поточному розмірі */
@@ -217,6 +225,7 @@ App.modules.schulte = (function () {
       stopBtn.style.display = "none";
       const mode = modeKey(opts);
       const prevBest = bestFor(size, mode);
+      App.store.addTime("schulte", ms);
       App.store.addRecord("schulte", { size: size, mode: mode, timeMs: Math.round(ms), errors: errors });
       const isRecord = prevBest === null || ms < prevBest;
       if (isRecord) App.ui.toast("🏆 Новий рекорд " + size + "×" + size + ": " + App.ui.fmtMs(ms));
@@ -235,6 +244,7 @@ App.modules.schulte = (function () {
     /* завершення однієї гри марафону: гра зараховується окремим записом */
     function finishMarathonGame(ms) {
       const mode = modeKey(opts);
+      App.store.addTime("schulte", ms);
       App.store.addRecord("schulte", { size: size, mode: mode, timeMs: Math.round(ms), errors: errors, mar: true });
       marathon.totalMs += ms;
       marathon.totalErrors += errors;
@@ -448,13 +458,15 @@ App.modules.schulte = (function () {
         h("div", { class: "schulte-stage" },
           h("div", { class: "schulte-hud" },
             timerEl, marathonEl, nextEl, errEl,
-            h("div", { class: "row", style: "margin-top:8px" }, stopBtn)),
+            h("div", { class: "row", style: "margin-top:8px" }, stopBtn),
+            todayEl),
           grid),
         sidePanel));
 
     buildGrid();
     showIdleOverlay();
     renderSide();
+    updateInfo();
 
     App.primaryAction = function () {
       if (running) return false;
