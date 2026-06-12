@@ -79,7 +79,6 @@ App.modules.schulte = (function () {
     const marathonEl = h("div", { class: "yellow", style: "font-weight:800;display:none" });
     const nextEl = h("div", { class: "muted", style: "font-weight:800;font-size:1.1rem;min-width:90px" }, "—");
     const errEl = h("div", { class: "muted", style: "font-weight:800" }, "");
-    const todayEl = h("div", { class: "tiny muted", style: "font-weight:700" });
     const grid = h("div", { class: "schulte-grid" });
     const sidePanel = h("div", { class: "schulte-side" });
 
@@ -165,18 +164,6 @@ App.modules.schulte = (function () {
       }
     }
 
-    function todayMs() {
-      const today = App.store.todayStr();
-      return App.store.records("schulte").reduce(function (s, r) {
-        return s + (r.date === today ? (r.timeMs || 0) : 0);
-      }, 0);
-    }
-
-    function updateToday() {
-      const ms = todayMs();
-      todayEl.textContent = "🕐 сьогодні в Шульте: " + (ms ? App.ui.fmtClock(ms / 1000) : "00:00");
-    }
-
     /* запуск одного раунду на поточному розмірі */
     function startRound() {
       stopTimer();
@@ -239,7 +226,6 @@ App.modules.schulte = (function () {
       ]);
       renderSide();
       updateInfo();
-      updateToday();
     }
 
     /* завершення однієї гри марафону */
@@ -300,7 +286,6 @@ App.modules.schulte = (function () {
       ]);
       renderSide();
       updateInfo();
-      updateToday();
     }
 
     function onCell(cell) {
@@ -472,15 +457,13 @@ App.modules.schulte = (function () {
         h("div", { class: "schulte-stage" },
           h("div", { class: "schulte-hud" },
             timerEl, marathonEl, nextEl, errEl,
-            h("div", { class: "row", style: "margin-top:8px" }, stopBtn),
-            todayEl),
+            h("div", { class: "row", style: "margin-top:8px" }, stopBtn)),
           grid),
         sidePanel));
 
     buildGrid();
     showIdleOverlay();
     renderSide();
-    updateToday();
 
     App.primaryAction = function () {
       if (running) return false;
