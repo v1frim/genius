@@ -44,8 +44,14 @@
     const pct = App.modules.dashboard.todayPct();
     el.append(
       h("div", { class: "streak-mini" }, "🔥 " + streak + " дн. · " + pct + "%"),
+      h("div", { id: "totalTime", class: "total-time" }, "⏱ всього сьогодні: " + App.ui.fmtClock(App.store.timeToday() / 1000)),
       h("div", null, "тренуйся щодня"));
   };
+
+  function refreshTotalTime() {
+    const el = document.getElementById("totalTime");
+    if (el) el.textContent = "⏱ всього сьогодні: " + App.ui.fmtClock(App.store.timeToday() / 1000);
+  }
 
   /* ---- облік часу, приділеного розділу за сьогодні ---- */
   let timeInt = null;
@@ -84,6 +90,7 @@
       if (Date.now() - lastActivity > 120000) return; // простій > 2 хв — не рахуємо
       App.store.addTime(currentId(), 1000);
       renderTimeBadge();
+      refreshTotalTime();
       if (++saveTick % 8 === 0) App.store.save(); // зберігаємо раз на ~8 с
     }, 1000);
   }
