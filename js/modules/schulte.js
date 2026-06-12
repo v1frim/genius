@@ -213,21 +213,36 @@ App.modules.schulte = (function () {
       return best;
     }
 
+    const SIZES = [3, 4, 5, 6, 7];
+
+    function setSize(sz) {
+      if (sz === size) return;
+      size = sz; savePrefs();
+      running = false; stopTimer();
+      stopBtn.style.display = "none";
+      buildGrid(); showIdleOverlay(); renderSide(); updateInfo();
+      timerEl.textContent = "0.00 с";
+      startBtn.textContent = "СТАРТ";
+    }
+
+    /* правий Shift — наступний розмір, лівий — попередній */
+    function onShift(e) {
+      if (e.key !== "Shift") return;
+      const tag = ((e.target && e.target.tagName) || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+      const i = SIZES.indexOf(size);
+      if (e.code === "ShiftRight") setSize(SIZES[(i + 1) % SIZES.length]);
+      else if (e.code === "ShiftLeft") setSize(SIZES[(i - 1 + SIZES.length) % SIZES.length]);
+    }
+
     function renderSide() {
       sidePanel.innerHTML = "";
 
       const sizeChips = h("div", { class: "row" });
-      [3, 4, 5, 6, 7].forEach(function (sz) {
+      SIZES.forEach(function (sz) {
         sizeChips.append(h("button", {
           class: "chip" + (sz === size ? " active" : ""),
-          onclick: function () {
-            size = sz; savePrefs();
-            running = false; stopTimer();
-            stopBtn.style.display = "none";
-            buildGrid(); showIdleOverlay(); renderSide(); updateInfo();
-            timerEl.textContent = "0.00 с";
-            startBtn.textContent = "СТАРТ";
-          },
+          onclick: function () { setSize(sz); },
         }, sz + "×" + sz));
       });
 
@@ -253,7 +268,9 @@ App.modules.schulte = (function () {
           optToggle("reverse", "Зворотний порядок", "Шукай від найбільшого до 1"),
           optToggle("hideFound", "Затемнювати знайдені"),
           optToggle("dot", "Око в центрі", "Дивись на око в центрі, числа шукай периферійним зором"),
-          optToggle("hint", "Показувати наступне число"))));
+          optToggle("hint", "Показувати наступне число")),
+        h("div", { class: "tiny muted", style: "margin-top:10px" },
+          "Shift праворуч / ліворуч — наступний / попередній розмір · Space — старт")));
 
       const best = bestFor(size, modeKey(opts));
       const recent = App.store.records("schulte").slice(-8).reverse();
@@ -290,12 +307,13 @@ App.modules.schulte = (function () {
 
     root.append(
       h("h1", { class: "page-title" }, "🔢 Таблиці Шульте"),
-      h("div", { class: "page-sub" }, "Периферійний зір, швидкість пошуку та концентрація. Це твоє «все бачить»."),
+      h("div", { class: "page-sub", style: "margin-bottom:12px" }, "Периферійний зір, швидкість пошуку та концентрація. Це твоє «все бачить»."),
       h("div", { class: "schulte-wrap fade-in" },
-        h("div", { class: "schulte-board-zone" },
-          h("div", { class: "row", style: "width:100%;max-width:470px;justify-content:space-between" }, timerEl, nextEl, errEl),
-          grid,
-          h("div", { class: "row" }, startBtn, stopBtn)),
+        h("div", { class: "schulte-stage" },
+          h("div", { class: "schulte-hud" },
+            timerEl, nextEl, errEl,
+            h("div", { class: "row", style: "margin-top:8px" }, startBtn, stopBtn)),
+          grid),
         sidePanel));
 
     buildGrid();
@@ -303,8 +321,12 @@ App.modules.schulte = (function () {
     renderSide();
 
     App.primaryAction = function () { if (!running) { start(); return true; } return false; };
+    document.addEventListener("keydown", onShift);
 
-    return function cleanup() { stopTimer(); };
+    return function cleanup() {
+      stopTimer();
+      document.removeEventListener("keydown", onShift);
+    };
   }
 
   return { id: "schulte", title: "Шульте", icon: "🔢", render: render };

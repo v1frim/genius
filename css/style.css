@@ -90,7 +90,7 @@ body {
 .main { flex: 1; min-width: 0; }
 
 .view {
-  max-width: 1080px;
+  max-width: 1180px;
   margin: 0 auto;
   padding: 28px 24px 80px;
 }
@@ -338,7 +338,29 @@ table.results tr:last-child td { border-bottom: none; }
 /* ---------- schulte ---------- */
 
 .schulte-wrap { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
-.schulte-board-zone { flex: 1; min-width: 320px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.schulte-stage { display: flex; gap: 18px; align-items: flex-start; flex: 1; min-width: 320px; }
+.schulte-hud {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 140px;
+  padding-top: 6px;
+  align-items: flex-start;
+}
+.schulte-hud .timer-big { font-size: 1.9rem; }
+@media (max-width: 1150px) {
+  .schulte-stage { flex-direction: column; align-items: center; }
+  .schulte-hud {
+    flex-direction: row;
+    width: 100%;
+    max-width: 620px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    padding-top: 0;
+  }
+  .schulte-hud .row { margin-top: 0 !important; }
+}
 
 .schulte-grid {
   display: grid;
