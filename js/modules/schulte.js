@@ -407,17 +407,28 @@ App.modules.schulte = (function () {
         h("div", { class: "tiny muted", style: "margin-top:10px" },
           "Shift лівий / правий — наступний / попередній розмір · Space — старт")));
 
-      const recent = App.store.records("schulte").slice(-9).reverse();
+      // позначаємо ігри, що були особистим рекордом на момент гри (для свого розміру+режиму)
+      const allRecs = App.store.records("schulte");
+      const bestSoFar = {};
+      const recordSet = new Set();
+      allRecs.forEach(function (r) {
+        const key = r.marathon ? ("M" + r.games + ":" + (r.mode || "")) : (r.size + ":" + (r.mode || ""));
+        const prev = bestSoFar[key];
+        if (prev === undefined || r.timeMs < prev) { bestSoFar[key] = r.timeMs; recordSet.add(r); }
+      });
+
+      const recent = allRecs.slice(-9).reverse();
       const tbl = h("table", { class: "results" },
         h("tr", null, h("th", null, "Розмір"), h("th", null, "Режим"), h("th", null, "Час"), h("th", null, "Пом."), h("th", null, "Дата")),
         recent.map(function (r) {
           // r.marathon — старий сумарний запис; r.mar — окрема гра марафону
-          const sizeCell = r.marathon ? "3→7" : r.size + "×" + r.size;
+          const isRec = recordSet.has(r);
+          const sizeCell = (isRec ? "🏆 " : "") + (r.marathon ? "3→7" : r.size + "×" + r.size);
           const modeCell = r.marathon
             ? "🏁×" + r.games + (r.mode ? " " + modeShort(r.mode) : "")
             : (r.mar ? "🏁 " : "") + modeShort(r.mode || "");
           return h("tr", null,
-            h("td", null, sizeCell),
+            h("td", { class: isRec ? "yellow" : "", style: isRec ? "font-weight:900" : "", title: isRec ? "Особистий рекорд на момент гри" : "" }, sizeCell),
             h("td", { title: (r.marathon ? "марафон ×" + r.games + " · " : r.mar ? "марафон · " : "") + modeLabel(r.mode || "") }, modeCell),
             h("td", { class: evaluateRec(r).cls, style: "font-weight:800" }, App.ui.fmtMs(r.timeMs)),
             h("td", null, String(r.errors)),
