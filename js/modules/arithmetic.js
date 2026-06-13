@@ -121,7 +121,7 @@ App.modules.arithmetic = (function () {
       answerIn.focus();
       updateStatus();
       const m = modeDef();
-      if (m.count && correct + wrong + skipped >= m.count) finish();
+      if (m.count && correct + wrong + skipped >= m.count) finish(false);
     }
 
     function flash(ok) {
@@ -162,13 +162,14 @@ App.modules.arithmetic = (function () {
           answerIn,
           h("button", { class: "btn green", onclick: submit }, "ОК"),
           h("button", { class: "btn ghost", onclick: skip }, "Пропустити")),
-        m.free ? h("div", { class: "row center", style: "margin-top:14px" },
-          h("button", { class: "btn ghost small", onclick: finish }, "Завершити")) : null);
+        h("div", { class: "row center", style: "margin-top:14px" },
+          h("button", { class: "btn ghost small", onclick: function () { finish(!m.free); } },
+            m.free ? "Завершити" : "Зупинити")));
       if (m.seconds) {
         endsAt = performance.now() + m.seconds * 1000;
         timerInt = setInterval(function () {
           updateStatus();
-          if (performance.now() >= endsAt) finish();
+          if (performance.now() >= endsAt) finish(false);
         }, 200);
       } else {
         timerInt = setInterval(updateStatus, 500);
@@ -176,10 +177,15 @@ App.modules.arithmetic = (function () {
       nextTask();
     }
 
-    function finish() {
+    function finish(aborted) {
       if (!running) return;
       running = false;
       stopTimer();
+      if (aborted) { // завчасне завершення в режимах із лімітом — результат не зараховуємо
+        App.ui.toast("Зупинено — результат не зараховано", "info");
+        renderIdle();
+        return;
+      }
       const seconds = Math.round((performance.now() - startTs) / 1000);
       const total = correct + wrong + skipped;
       const prevBest = bestFor(modeId, level);
@@ -218,7 +224,7 @@ App.modules.arithmetic = (function () {
           Array.prototype.forEach.call(levelChips.children, function (el, i) {
             el.classList.toggle("active", i + 1 === level);
           });
-          if (!running) renderIdle();
+          running = false; renderIdle();
         },
       }, String(l)));
     });
@@ -234,7 +240,7 @@ App.modules.arithmetic = (function () {
           Array.prototype.forEach.call(opChips.children, function (el, j) {
             el.classList.toggle("active", ops.indexOf(OPS[j]) >= 0);
           });
-          if (!running) renderIdle();
+          running = false; renderIdle();
         },
       }, op));
     });
