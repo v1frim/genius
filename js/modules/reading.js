@@ -814,6 +814,17 @@ App.modules.reading = (function () {
     return best;
   }
 
+  function bestRsvpWpm() {
+    let best = null;
+    App.store.records("reading").forEach(function (r) {
+      if (r.kind === "rsvp") {
+        const v = r.avgWpm || r.rsvpWpm;
+        if (typeof v === "number" && (best === null || v > best)) best = v;
+      }
+    });
+    return best;
+  }
+
   /* ---------- результати ---------- */
 
   function renderResults(root) {
@@ -822,11 +833,13 @@ App.modules.reading = (function () {
     const rsvps = recs.filter(function (r) { return r.kind === "rsvp"; });
     const totalWords = recs.reduce(function (s, r) { return s + (r.words || 0); }, 0);
     const best = bestTestWpm();
+    const bestRsvp = bestRsvpWpm();
 
     root.append(h("div", { class: "card" },
       h("h2", null, "Підсумки"),
       h("div", { class: "stat-cards" },
         App.ui.statCard(best || "—", "рекорд тесту, сл/хв"),
+        App.ui.statCard(bestRsvp || "—", "найкращий RSVP-темп"),
         App.ui.statCard(tests.length ? tests[tests.length - 1].comp + "%" : "—", "останнє розуміння"),
         App.ui.statCard(String(rsvps.length), "RSVP-сесій"),
         App.ui.statCard(String(totalWords), "слів прочитано"))));
