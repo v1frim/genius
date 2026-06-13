@@ -14,6 +14,15 @@ App.modules.goals = (function () {
     visualBest: function () { return App.store.best("visualMemory", "best", "max") || 0; },
   };
 
+  function isAuto(g) { return !!g.auto; }
+
+  const EMOJI_SET = [
+    "🎯", "🏆", "⭐", "🔥", "💪", "🏋️", "🦵", "🏃", "🚴", "🏊", "🧘", "😴",
+    "🛌", "🚿", "🧠", "👁️", "📖", "📚", "✍️", "🎤", "🗂️", "🧩", "♟️", "🥧",
+    "🃏", "💰", "💵", "📈", "🌟", "🎭", "👋", "💘", "👨‍👩‍👧", "🕴️", "🇬🇧", "🇵🇱",
+    "🍳", "🥗", "🏔️", "🤹", "🎨", "🎸", "📷", "✈️", "⏱️", "✅", "💧", "❤️",
+  ];
+
   function autoValue(g) {
     const fn = AUTO[g.auto];
     const v = fn ? fn() : 0;
@@ -46,6 +55,7 @@ App.modules.goals = (function () {
 
   function render(root) {
     const goals = App.store.state.goals;
+    let tab = "auto";
 
     function rerender() {
       root.innerHTML = "";
@@ -148,55 +158,34 @@ App.modules.goals = (function () {
       return h("div", { class: "goal-card" }, bodyKids);
     }
 
-    function build() {
-      const active = goals.filter(function (g) { return g.active; });
-      const recs = goals.filter(function (g) { return !g.active; });
-
-      const numeric = active.filter(function (g) { return !g.qualitative; });
-      const avgPct = numeric.length
-        ? Math.round(numeric.reduce(function (s, g) { return s + progressPct(g); }, 0) / numeric.length)
-        : 0;
-      const doneCount = active.filter(function (g) { return g.qualitative && g.done; }).length;
-
-      root.append(
-        h("h1", { class: "page-title" }, "🎯 Цілі"),
-        h("div", { class: "page-sub" }, "Рекорди з тренажерів підтягуються сюди автоматично. Решту онови вручну."),
-        h("div", { class: "card fade-in" },
-          h("div", { class: "row", style: "gap:24px" },
-            h("div", null, h("div", { class: "big-num accent" }, avgPct + "%"), h("div", { class: "tiny muted" }, "середній прогрес числових цілей")),
-            h("div", null, h("div", { class: "big-num" }, String(active.length)), h("div", { class: "tiny muted" }, "активних цілей")),
-            h("div", null, h("div", { class: "big-num yellow" }, String(doneCount)), h("div", { class: "tiny muted" }, "досягнуто віх")),
-          ),
-          h("div", { style: "margin-top:12px" }, App.ui.progressBar(avgPct))));
-
-      root.append(h("h2", { style: "margin:18px 0 12px" }, "Мої цілі"));
-      const list = h("div", { class: "fade-in" });
-      active.forEach(function (g) { list.append(goalCard(g)); });
-      root.append(list);
-
-      /* нова ціль */
-      const emojiIn = h("input", { type: "text", placeholder: "🎯", style: "width:54px;text-align:center" });
+    function renderAddCard() {
+      let picked = "🎯";
+      const emojiBtn = h("button", { class: "emoji-btn", type: "button", title: "Вибрати емодзі" }, picked);
+      const emojiGrid = h("div", { class: "emoji-grid", style: "display:none" });
+      EMOJI_SET.forEach(function (em) {
+        emojiGrid.append(h("button", {
+          class: "emoji-opt", type: "button",
+          onclick: function () { picked = em; emojiBtn.textContent = em; emojiGrid.style.display = "none"; },
+        }, em));
+      });
+      emojiBtn.addEventListener("click", function () {
+        emojiGrid.style.display = emojiGrid.style.display === "none" ? "flex" : "none";
+      });
       const titleIn = h("input", { type: "text", placeholder: "Назва цілі…", style: "flex:1;min-width:170px" });
       const curIn = h("input", { type: "number", placeholder: "зараз", style: "width:90px" });
       const targetIn = h("input", { type: "number", placeholder: "ціль", style: "width:90px" });
       const unitIn = h("input", { type: "text", placeholder: "одиниця", style: "width:110px" });
-      root.append(h("div", { class: "card" },
+      return h("div", { class: "card" },
         h("h3", null, "Додати свою ціль"),
         h("div", { class: "row" },
-          emojiIn, titleIn, curIn, targetIn, unitIn,
+          emojiBtn, titleIn, curIn, targetIn, unitIn,
           h("button", {
             class: "btn small green",
             onclick: function () {
               const title = titleIn.value.trim();
               if (!title) { App.ui.toast("Введи назву цілі", "info"); return; }
               const target = Number(targetIn.value);
-              const goal = {
-                id: "u" + Date.now(),
-                emoji: emojiIn.value.trim() || "🎯",
-                title: title,
-                group: "mine",
-                active: true,
-              };
+              const goal = { id: "u" + Date.now(), emoji: picked, title: title, group: "mine", active: true };
               if (target > 0) {
                 goal.target = target;
                 goal.current = Number(curIn.value) || 0;
@@ -209,16 +198,68 @@ App.modules.goals = (function () {
               App.store.save(); rerender();
             },
           }, "Додати")),
-        h("div", { class: "tiny muted", style: "margin-top:8px" }, "Без числа-цілі — буде віха з чекбоксом.")));
+        emojiGrid,
+        h("div", { class: "tiny muted", style: "margin-top:8px" }, "Натисни кнопку-емодзі, щоб вибрати значок. Без числа-цілі — буде віха з чекбоксом."));
+    }
 
-      if (recs.length) {
-        root.append(
-          h("h2", { style: "margin:18px 0 4px" }, "💡 Рекомендовано тренером"),
-          h("div", { class: "page-sub" }, "Цілі, які найсильніше прокачують «геніальність». Бери в роботу по 1–2 за раз."),
-        );
-        const recList = h("div", { class: "fade-in" });
-        recs.forEach(function (g) { recList.append(goalCard(g)); });
-        root.append(recList);
+    function recSection(list) {
+      const sec = h("div", { class: "fade-in" });
+      list.forEach(function (g) { sec.append(goalCard(g)); });
+      return sec;
+    }
+
+    function build() {
+      const active = goals.filter(function (g) { return g.active; });
+      const recs = goals.filter(function (g) { return !g.active; });
+
+      const numeric = active.filter(function (g) { return !g.qualitative; });
+      const avgPct = numeric.length
+        ? Math.round(numeric.reduce(function (s, g) { return s + progressPct(g); }, 0) / numeric.length)
+        : 0;
+      const doneCount = active.filter(function (g) { return g.qualitative && g.done; }).length;
+
+      root.append(
+        h("h1", { class: "page-title" }, "🎯 Цілі"),
+        h("div", { class: "page-sub" }, "Цілі з тренажерів рахуються самі. Особисті — онови вручну."),
+        h("div", { class: "card fade-in" },
+          h("div", { class: "row", style: "gap:24px" },
+            h("div", null, h("div", { class: "big-num accent" }, avgPct + "%"), h("div", { class: "tiny muted" }, "середній прогрес числових цілей")),
+            h("div", null, h("div", { class: "big-num" }, String(active.length)), h("div", { class: "tiny muted" }, "активних цілей")),
+            h("div", null, h("div", { class: "big-num yellow" }, String(doneCount)), h("div", { class: "tiny muted" }, "досягнуто віх")),
+          ),
+          h("div", { style: "margin-top:12px" }, App.ui.progressBar(avgPct))));
+
+      root.append(h("div", { style: "margin:16px 0 6px" }, App.ui.tabBar([
+        { id: "auto", label: "🎮 У тренажерах" },
+        { id: "personal", label: "🎯 Особисті" },
+      ], tab, function (id) { tab = id; rerender(); })));
+
+      if (tab === "auto") {
+        root.append(h("div", { class: "page-sub", style: "margin-bottom:10px" }, "Прогрес цих цілей тренажери підтягують самі — грай і дивись, як росте."));
+        const a = active.filter(isAuto);
+        const list = h("div", { class: "fade-in" });
+        a.forEach(function (g) { list.append(goalCard(g)); });
+        if (!a.length) list.append(h("div", { class: "muted small" }, "Поки нема активних цілей у тренажерах."));
+        root.append(list);
+        const r = recs.filter(isAuto);
+        if (r.length) {
+          root.append(h("h2", { style: "margin:18px 0 4px" }, "💡 Рекомендовано тренером"),
+            h("div", { class: "page-sub" }, "Тренажери в розділі «Пам'ять». Бери в роботу."));
+          root.append(recSection(r));
+        }
+      } else {
+        root.append(h("div", { class: "page-sub", style: "margin-bottom:10px" }, "Цілі поза тренажерами — постав поточне значення і онови вручну."));
+        const a = active.filter(function (g) { return !isAuto(g); });
+        const list = h("div", { class: "fade-in" });
+        a.forEach(function (g) { list.append(goalCard(g)); });
+        root.append(list);
+        root.append(renderAddCard());
+        const r = recs.filter(function (g) { return !isAuto(g); });
+        if (r.length) {
+          root.append(h("h2", { style: "margin:18px 0 4px" }, "💡 Рекомендовано тренером"),
+            h("div", { class: "page-sub" }, "Цілі, які найсильніше прокачують «геніальність». Бери по 1–2 за раз."));
+          root.append(recSection(r));
+        }
       }
     }
 

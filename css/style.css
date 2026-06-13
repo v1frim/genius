@@ -330,7 +330,15 @@ table.results tr:last-child td { border-bottom: none; }
 .task-row.done .t-title { text-decoration: line-through; color: var(--muted); }
 .task-row .t-link { color: var(--muted); text-decoration: none; font-size: 1rem; padding: 2px 6px; border-radius: 8px; }
 .task-row .t-link:hover { color: var(--text); background: rgba(255, 255, 255, 0.08); }
-.task-row .t-del { background: none; border: none; color: var(--danger); font-size: 1.1rem; cursor: pointer; padding: 2px 8px; }
+.t-del {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; flex: none;
+  border: none; border-radius: 8px;
+  background: rgba(255, 92, 108, 0.12); color: var(--danger);
+  font-size: 0.85rem; line-height: 1; cursor: pointer;
+  opacity: 0.6; transition: background .15s, opacity .15s, transform .15s;
+}
+.t-del:hover { background: var(--danger); color: #fff; opacity: 1; transform: scale(1.1); }
 
 .history-bars { display: flex; align-items: flex-end; gap: 5px; height: 70px; }
 .history-bars .hb { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
@@ -692,6 +700,21 @@ table.results tr:last-child td { border-bottom: none; }
   cursor: pointer;
 }
 .btn-mini:hover { background: var(--primary); }
+
+.emoji-btn {
+  width: 54px; height: 40px; font-size: 1.3rem; line-height: 1;
+  border: none; border-radius: 10px; background: var(--panel3); color: var(--text); cursor: pointer;
+}
+.emoji-btn:hover { background: var(--primary); }
+.emoji-grid {
+  flex-wrap: wrap; gap: 6px; margin-top: 10px; max-width: 520px;
+  background: rgba(0, 0, 0, 0.15); padding: 10px; border-radius: 12px;
+}
+.emoji-opt {
+  width: 38px; height: 38px; font-size: 1.25rem; line-height: 1;
+  border: none; border-radius: 8px; background: transparent; cursor: pointer;
+}
+.emoji-opt:hover { background: var(--panel3); }
 
 /* ---------- misc ---------- */
 

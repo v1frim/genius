@@ -94,6 +94,7 @@
     if (cleanup) { try { cleanup(); } catch (e) { console.error(e); } cleanup = null; }
     App.primaryAction = null; // модуль перевизначить, якщо підтримує Space-старт
     App.store.rollover();
+    if (App.modules.dashboard.syncAutoTasks) App.modules.dashboard.syncAutoTasks();
     const id = currentId();
     const mod = MODULES.find(function (m) { return m.id === id; });
     const view = document.getElementById("view");
