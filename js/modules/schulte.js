@@ -26,30 +26,37 @@ App.modules.schulte = (function () {
     return (mode.indexOf("s") >= 0 ? "🔀" : "") + (mode.indexOf("r") >= 0 ? "↩" : "");
   }
 
-  /* оцінка часу: n — скільки чисел треба знайти */
-  function evaluateN(n, ms) {
+  /* оцінка часу. Час на клітинку росте з розміром сітки (більша таблиця —
+     складніший зоровий пошук), тож «феноменально»-поріг ∝ size⁴, а не просто
+     к-сть клітинок × const. Решта тірів — кратні цьому порогу. */
+  function eliteSec(size) { return size * size * size * size / 32; } // поріг «феноменально», с
+  const MARATHON_ELITE = SIZES.reduce(function (s, sz) { return s + eliteSec(sz); }, 0);
+  const TIER_MULT = { great: 1.5, good: 2.25, mid: 3.25 };
+
+  function evalSec(elite, ms) {
     const s = ms / 1000;
-    if (s <= n * 0.8) return { text: "Феноменально! 🏆", cls: "tier-elite" };
-    if (s <= n * 1.2) return { text: "Відмінно! 🔥", cls: "tier-great" };
-    if (s <= n * 1.8) return { text: "Добре 👍", cls: "tier-good" };
-    if (s <= n * 2.6) return { text: "Середньо — є куди рости", cls: "tier-mid" };
+    if (s <= elite) return { text: "Феноменально! 🏆", cls: "tier-elite" };
+    if (s <= elite * TIER_MULT.great) return { text: "Відмінно! 🔥", cls: "tier-great" };
+    if (s <= elite * TIER_MULT.good) return { text: "Добре 👍", cls: "tier-good" };
+    if (s <= elite * TIER_MULT.mid) return { text: "Середньо — є куди рости", cls: "tier-mid" };
     return { text: "Повільно — тренуйся щодня", cls: "tier-slow" };
   }
 
-  function evaluate(size, ms) { return evaluateN(size * size, ms); }
+  function evaluate(size, ms) { return evalSec(eliteSec(size), ms); }
 
   function evaluateRec(r) {
-    return r.marathon ? evaluateN(MARATHON_CELLS * r.games, r.timeMs) : evaluate(r.size, r.timeMs);
+    return r.marathon ? evalSec(MARATHON_ELITE * r.games, r.timeMs) : evaluate(r.size, r.timeMs);
   }
 
   /* орієнтири часу (стовпчиком, кожен рівень своїм кольором) */
-  function benchmarkEl(title, n) {
+  function benchmarkEl(title, size) {
+    const e = eliteSec(size);
     return h("div", { class: "tiny", style: "margin-top:10px;line-height:1.9" },
       h("div", { class: "muted", style: "font-weight:800" }, title),
-      h("div", { class: "tier-elite" }, "🏆 < " + Math.round(n * 0.8) + " с — феноменально"),
-      h("div", { class: "tier-great" }, "🔥 < " + Math.round(n * 1.2) + " с — відмінно"),
-      h("div", { class: "tier-good" }, "👍 < " + Math.round(n * 1.8) + " с — добре"),
-      h("div", { class: "tier-mid" }, "⏳ < " + Math.round(n * 2.6) + " с — середньо"),
+      h("div", { class: "tier-elite" }, "🏆 < " + Math.round(e) + " с — феноменально"),
+      h("div", { class: "tier-great" }, "🔥 < " + Math.round(e * TIER_MULT.great) + " с — відмінно"),
+      h("div", { class: "tier-good" }, "👍 < " + Math.round(e * TIER_MULT.good) + " с — добре"),
+      h("div", { class: "tier-mid" }, "⏳ < " + Math.round(e * TIER_MULT.mid) + " с — середньо"),
       h("div", { class: "tier-slow" }, "повільніше — тренуйся щодня"),
       h("div", { class: "muted", style: "margin-top:4px" }, "Дивись лише в центр таблиці!"));
   }
@@ -286,7 +293,7 @@ App.modules.schulte = (function () {
       const done = marathon.done || 0;
       cancelMarathon();
       stopBtn.style.display = "none";
-      const ev = evaluateN(MARATHON_CELLS * games, total);
+      const ev = evalSec(MARATHON_ELITE * games, total);
       showOverlay([
         h("div", { style: "font-weight:900;font-size:1.1rem" }, "🏁 Марафон пройдено!"),
         h("div", { class: "big-num" }, App.ui.fmtMs(total)),
@@ -445,7 +452,7 @@ App.modules.schulte = (function () {
           h("div", { class: "yellow", style: "font-weight:900;font-size:1.1rem" }, headBest ? App.ui.fmtMs(headBest) : "—")),
         opts.marathon ? h("div", { class: "tiny muted", style: "margin:-4px 0 10px" }, "🏁 Марафон: кожна гра зараховується окремим рядком.") : null,
         recent.length ? tbl : h("div", { class: "muted small" }, "Зіграй першу таблицю — результати з'являться тут."),
-        benchmarkEl("Орієнтир для " + size + "×" + size + ":", size * size)));
+        benchmarkEl("Орієнтир для " + size + "×" + size + ":", size)));
     }
 
     function showIdleOverlay() {
