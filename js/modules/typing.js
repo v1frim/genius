@@ -16,6 +16,7 @@ App.modules.typing = (function () {
     { id: "m", label: "Середній", chars: 300 },
     { id: "l", label: "Довгий", chars: 550 },
   ];
+  const MAX_CPM = 1500; // фізична стеля зн/хв; вище — зіпсований запис, не зберігаємо
 
   function buildText(sourceId, targetChars, customText) {
     if (sourceId === "custom") {
@@ -183,10 +184,14 @@ App.modules.typing = (function () {
       const acc = totalKeys ? Math.round((totalKeys - wrongKeys) / totalKeys * 100) : 100;
       const prevBest = App.store.best("typing", "cpm", "max");
       App.store.addTime("typing", elapsed);
-      App.store.addRecord("typing", { cpm: cpm, wpm: wpm, accuracy: acc, errors: wrongKeys, chars: chars.length, source: sourceId });
-      if (prevBest === null || cpm > prevBest) App.ui.toast("🏆 Новий рекорд друку: " + cpm + " зн/хв");
+      // захист від зіпсованих значень (нереальна швидкість) — не псуємо рекорд
+      if (cpm <= MAX_CPM) {
+        App.store.addRecord("typing", { cpm: cpm, wpm: wpm, accuracy: acc, errors: wrongKeys, chars: chars.length, source: sourceId, length: lengthId });
+        if (prevBest === null || cpm > prevBest) App.ui.toast("🏆 Новий рекорд друку: " + cpm + " зн/хв");
+      }
       progFill.style.width = "100%";
       resultBox.innerHTML = "";
+      const againBtn = h("button", { class: "btn green", onclick: newText }, "ЩЕ РАЗ");
       resultBox.append(h("div", { class: "card inner", style: "text-align:center;margin-top:14px" },
         h("div", { class: "stat-cards" },
           App.ui.statCard(String(cpm), "зн/хв"),
@@ -196,8 +201,11 @@ App.modules.typing = (function () {
         h("div", { class: "muted small", style: "margin:10px 0" },
           cpm >= 400 ? "Ціль 400 зн/хв узята! 🔥" :
             (acc < 95 ? "Спершу точність 97%+, швидкість прийде сама." : "До цілі 400 зн/хв лишилось " + (400 - cpm) + ".")),
-        h("button", { class: "btn green", onclick: newText }, "ЩЕ РАЗ")));
+        againBtn));
       renderRecords();
+      // фокус на «ЩЕ РАЗ» — щоб Space/Enter одразу запускали наступний текст
+      textBox.classList.remove("blurred");
+      againBtn.focus({ preventScroll: true });
     }
 
     function onKeyDown(e) {
@@ -216,7 +224,7 @@ App.modules.typing = (function () {
       if (started && !finished) runStart = performance.now();
     });
     hiddenInput.addEventListener("blur", function () {
-      textBox.classList.add("blurred");
+      if (!finished) textBox.classList.add("blurred"); // після фінішу лишаємо текст чітким (фокус іде на «ЩЕ РАЗ»)
       if (focused && started && !finished) accumMs += performance.now() - runStart; // пауза таймера
       focused = false;
     });
@@ -225,6 +233,53 @@ App.modules.typing = (function () {
     statInt = setInterval(updateLive, 300);
 
     const recordsBox = h("div");
+
+    function recLen(r) {
+      if (r.length) return r.length;
+      const c = typeof r.chars === "number" ? r.chars : 300;
+      return c < 215 ? "s" : c < 425 ? "m" : "l"; // межі між цілями 130/300/550
+    }
+
+    function renderMatrix() {
+      const recs = App.store.records("typing").filter(function (r) {
+        return typeof r.cpm === "number" && r.cpm <= MAX_CPM;
+      });
+      const best = {}; // best[source][lenId] = record; для custom — best.custom.x
+      let top = 0;
+      recs.forEach(function (r) {
+        const src = r.source || "ua";
+        const key = src === "custom" ? "x" : recLen(r);
+        best[src] = best[src] || {};
+        if (!best[src][key] || r.cpm > best[src][key].cpm) best[src][key] = r;
+        if (r.cpm > top) top = r.cpm;
+      });
+      function cell(rec) {
+        if (!rec) return h("td", { class: "muted" }, "—");
+        const isTop = rec.cpm === top;
+        return h("td", { style: isTop ? "color:var(--yellow);font-weight:900" : "font-weight:800" },
+          (isTop ? "🏆 " : "") + rec.cpm,
+          h("span", { class: "muted small" }, " · " + rec.accuracy + "%"));
+      }
+      const rows = ["ua", "twist", "en"].map(function (srcId) {
+        const src = SOURCES.find(function (s) { return s.id === srcId; });
+        const row = best[srcId] || {};
+        return h("tr", null, h("td", null, src.label), cell(row.s), cell(row.m), cell(row.l));
+      });
+      const cRec = (best.custom || {}).x;
+      const customRow = h("tr", null,
+        h("td", null, SOURCES.find(function (s) { return s.id === "custom"; }).label),
+        cRec
+          ? h("td", { colspan: "3", style: "text-align:center;font-weight:800" }, String(cRec.cpm),
+            h("span", { class: "muted small" }, " · " + cRec.accuracy + "% · будь-яка довжина"))
+          : h("td", { colspan: "3", class: "muted", style: "text-align:center" }, "—"));
+      return h("div", { class: "card" },
+        h("h2", null, "🏆 Рекорди за режимами"),
+        h("div", { class: "muted small", style: "margin-bottom:10px" },
+          "Найкраща швидкість (зн/хв) для кожного джерела й довжини."),
+        h("table", { class: "results" },
+          h("tr", null, h("th", null, "Джерело"), h("th", null, "Короткий"), h("th", null, "Середній"), h("th", null, "Довгий")),
+          rows, customRow));
+    }
 
     function renderRecords() {
       recordsBox.innerHTML = "";
@@ -248,6 +303,7 @@ App.modules.typing = (function () {
               h("td", null, src ? src.label : r.source),
               h("td", null, App.ui.fmtDate(r.date)));
           })) : null));
+      recordsBox.append(renderMatrix());
     }
 
     const sourceSel = h("select", null, SOURCES.map(function (s) {

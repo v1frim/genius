@@ -57,6 +57,11 @@ App.store = (function () {
     RECORD_CATS.forEach(function (c) {
       if (!Array.isArray(state.records[c])) state.records[c] = [];
     });
+    // прибрати фізично неможливі рекорди друку — спадок старого бага таймера
+    // (недорахований час давав сотні-тисячі зн/хв; людина не друкує понад ~1500)
+    state.records.typing = state.records.typing.filter(function (r) {
+      return !(typeof r.cpm === 'number' && r.cpm > 1500);
+    });
     if (!state.tasks) state.tasks = JSON.parse(JSON.stringify(App.data.defaultTasks));
     if (!state.goals) state.goals = JSON.parse(JSON.stringify(App.data.defaultGoals));
     rollover();

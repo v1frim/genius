@@ -32,6 +32,14 @@ App.modules.memory = (function () {
       return s;
     }
 
+    function spanBest(mode) {
+      let b = 0;
+      App.store.records("digitSpan").forEach(function (r) {
+        if ((r.mode || "fwd") === mode && typeof r.best === "number" && r.best > b) b = r.best;
+      });
+      return b;
+    }
+
     function intro() {
       clearTimeouts();
       box.innerHTML = "";
@@ -43,7 +51,7 @@ App.modules.memory = (function () {
         },
       });
       revCb.checked = reverse;
-      const spanBest = App.store.best("digitSpan", "best", "max");
+      const bf = spanBest("fwd"), br = spanBest("rev");
       box.append(h("div", { class: "card", style: "text-align:center" },
         h("h2", null, "Цифровий діапазон"),
         h("div", { class: "muted", style: "max-width:520px;margin:0 auto 14px" },
@@ -51,7 +59,8 @@ App.modules.memory = (function () {
           ". Відповів правильно — наступне буде довшим. " + ROUNDS + " раундів, починаємо з 4 цифр."),
         h("div", { class: "row center", style: "margin-bottom:16px" },
           h("label", { class: "opt" }, revCb, "Зворотний порядок (складніше, сильніше качає робочу пам'ять)")),
-        spanBest ? h("div", { class: "yellow", style: "font-weight:900;margin-bottom:12px" }, "Твій рекорд: " + spanBest + " цифр") : null,
+        (bf || br) ? h("div", { class: "yellow", style: "font-weight:900;margin-bottom:12px" },
+          "Рекорд — прямий: " + (bf || "—") + " · зворотний: " + (br || "—")) : null,
         h("button", {
           class: "btn green big", onclick: function () {
             len = 4; round = 0; bestLen = 0;
@@ -154,6 +163,7 @@ App.modules.memory = (function () {
     let timeouts = [];
     let gameStart = 0;
     const box = h("div");
+    const statsBox = h("div");
 
     function later(fn, ms) { timeouts.push(setTimeout(fn, ms)); }
     function clearTimeouts() { timeouts.forEach(clearTimeout); timeouts = []; }
@@ -256,10 +266,26 @@ App.modules.memory = (function () {
         h("div", { class: "muted small", style: "margin-bottom:14px" },
           best >= 12 ? "Фотографічна пам'ять не за горами! 🏆" : "Ціль — рівень 12+. Дивись на матрицю як на одну картинку, а не окремі клітинки."),
         h("button", { class: "btn green big", onclick: intro }, "ЩЕ РАЗ")));
+      renderMatrixStats();
+    }
+
+    function renderMatrixStats() {
+      statsBox.innerHTML = "";
+      const recs = App.store.records("visualMemory");
+      if (!recs.length) return;
+      const best = App.store.best("visualMemory", "best", "max");
+      statsBox.append(h("div", { class: "card" },
+        h("h2", null, "Динаміка матриці (ціль 12)"),
+        h("div", { class: "row", style: "gap:24px;align-items:center" },
+          h("div", null,
+            h("div", { class: "big-num yellow" }, best ? String(best) : "—"),
+            h("div", { class: "tiny muted" }, "рекорд (рівень)")),
+          App.ui.sparkline(recs.slice(-30).map(function (r) { return r.best; }), { w: 360, h: 60, goal: 12 }))));
     }
 
     intro();
-    root.append(box);
+    renderMatrixStats();
+    root.append(box, statsBox);
     return function cleanup() { clearTimeouts(); };
   }
 
