@@ -16,6 +16,7 @@ App.modules.typing = (function () {
     { id: "m", label: "Середній", chars: 300 },
     { id: "l", label: "Довгий", chars: 550 },
   ];
+  const MAX_CPM = 1500; // фізична стеля зн/хв; вище — зіпсований запис, не зберігаємо
 
   function buildText(sourceId, targetChars, customText) {
     if (sourceId === "custom") {
@@ -183,10 +184,14 @@ App.modules.typing = (function () {
       const acc = totalKeys ? Math.round((totalKeys - wrongKeys) / totalKeys * 100) : 100;
       const prevBest = App.store.best("typing", "cpm", "max");
       App.store.addTime("typing", elapsed);
-      App.store.addRecord("typing", { cpm: cpm, wpm: wpm, accuracy: acc, errors: wrongKeys, chars: chars.length, source: sourceId });
-      if (prevBest === null || cpm > prevBest) App.ui.toast("🏆 Новий рекорд друку: " + cpm + " зн/хв");
+      // захист від зіпсованих значень (нереальна швидкість) — не псуємо рекорд
+      if (cpm <= MAX_CPM) {
+        App.store.addRecord("typing", { cpm: cpm, wpm: wpm, accuracy: acc, errors: wrongKeys, chars: chars.length, source: sourceId });
+        if (prevBest === null || cpm > prevBest) App.ui.toast("🏆 Новий рекорд друку: " + cpm + " зн/хв");
+      }
       progFill.style.width = "100%";
       resultBox.innerHTML = "";
+      const againBtn = h("button", { class: "btn green", onclick: newText }, "ЩЕ РАЗ");
       resultBox.append(h("div", { class: "card inner", style: "text-align:center;margin-top:14px" },
         h("div", { class: "stat-cards" },
           App.ui.statCard(String(cpm), "зн/хв"),
@@ -196,8 +201,11 @@ App.modules.typing = (function () {
         h("div", { class: "muted small", style: "margin:10px 0" },
           cpm >= 400 ? "Ціль 400 зн/хв узята! 🔥" :
             (acc < 95 ? "Спершу точність 97%+, швидкість прийде сама." : "До цілі 400 зн/хв лишилось " + (400 - cpm) + ".")),
-        h("button", { class: "btn green", onclick: newText }, "ЩЕ РАЗ")));
+        againBtn));
       renderRecords();
+      // фокус на «ЩЕ РАЗ» — щоб Space/Enter одразу запускали наступний текст
+      textBox.classList.remove("blurred");
+      againBtn.focus({ preventScroll: true });
     }
 
     function onKeyDown(e) {
@@ -216,7 +224,7 @@ App.modules.typing = (function () {
       if (started && !finished) runStart = performance.now();
     });
     hiddenInput.addEventListener("blur", function () {
-      textBox.classList.add("blurred");
+      if (!finished) textBox.classList.add("blurred"); // після фінішу лишаємо текст чітким (фокус іде на «ЩЕ РАЗ»)
       if (focused && started && !finished) accumMs += performance.now() - runStart; // пауза таймера
       focused = false;
     });
