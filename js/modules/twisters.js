@@ -41,8 +41,19 @@ App.modules.twisters = (function () {
     let diff = App.store.pref("twisters.diff", 0);
     let order = [];
     let shownTs = performance.now();
+    let activeMs = 0;                 // активний час показу поточної скоромовки
+    let visible = !document.hidden;   // час рахуємо лише коли вкладка видима
     let orderPos = 0;
     let current = null;
+
+    function onVisibility() {
+      if (document.hidden) {
+        if (visible) { activeMs += performance.now() - shownTs; visible = false; }
+      } else if (!visible) {
+        shownTs = performance.now(); visible = true;
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
 
     const display = h("div", { class: "twister-card fade-in" });
     const counterEl = h("div", { class: "muted", style: "font-weight:800" });
@@ -75,6 +86,8 @@ App.modules.twisters = (function () {
       display.textContent = current.text;
       diffEl.textContent = current.generated ? "🎲 згенеровано" : "складність: " + "●".repeat(current.diff) + "○".repeat(3 - current.diff);
       shownTs = performance.now();
+      activeMs = 0;
+      visible = !document.hidden;
       updateCounter();
     }
 
@@ -89,8 +102,9 @@ App.modules.twisters = (function () {
       st.twisterTotal++;
       const today = App.store.todayStr();
       st.twisterByDay[today] = (st.twisterByDay[today] || 0) + 1;
-      // зіграний час = скільки скоромовка була на екрані до «прочитав» (стеля 4 хв)
-      App.store.addTime("twisters", Math.min(performance.now() - shownTs, 240000));
+      // зіграний час = активний показ скоромовки до «прочитав» (без часу в інших вкладках; стеля 2 хв)
+      const onScreen = activeMs + (visible ? performance.now() - shownTs : 0);
+      App.store.addTime("twisters", Math.min(onScreen, 120000));
       App.store.save();
       if ((st.twisterByDay[today]) === 5) App.ui.toast("👄 5 скоромовок сьогодні — задачу виконано!");
       next();
@@ -136,20 +150,20 @@ App.modules.twisters = (function () {
         h("div", { class: "row between", style: "margin-top:14px" }, diffEl, counterEl),
         h("div", { class: "row center", style: "margin-top:14px;gap:14px" },
           h("button", { class: "btn ghost", onclick: next }, "Пропустити"),
-          h("button", { class: "btn green big", onclick: countIt }, "✓ ПРОЧИТАВ ×3"))),
+          h("button", { class: "btn green big", onclick: countIt }, "✓ ПРОЧИТАВ ×5"))),
       h("div", { class: "card fade-in" },
         h("h2", null, "Як тренуватися"),
         h("div", { class: "small", style: "line-height:1.7;color:var(--muted)" },
           "1. Прочитай повільно і чітко, проговорюючи кожен звук." , h("br"),
           "2. Прискорюйся лише без втрати чіткості — швидкість без дикції не рахується.", h("br"),
-          "3. Кожну скоромовку — тричі поспіль, вголос, на одному диханні.", h("br"),
+          "3. Кожну скоромовку — п'ять разів поспіль, вголос і чітко.", h("br"),
           "4. Складні місця повтори окремо 5 разів. Щодня 5 скоромовок — і за місяць дикція зміниться.")));
 
     refreshChips();
     rebuildOrder();
     next();
 
-    return null;
+    return function cleanup() { document.removeEventListener("visibilitychange", onVisibility); };
   }
 
   return { id: "twisters", title: "Скоромовки", icon: "👄", render: render };

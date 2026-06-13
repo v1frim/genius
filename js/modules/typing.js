@@ -186,7 +186,7 @@ App.modules.typing = (function () {
       App.store.addTime("typing", elapsed);
       // захист від зіпсованих значень (нереальна швидкість) — не псуємо рекорд
       if (cpm <= MAX_CPM) {
-        App.store.addRecord("typing", { cpm: cpm, wpm: wpm, accuracy: acc, errors: wrongKeys, chars: chars.length, source: sourceId });
+        App.store.addRecord("typing", { cpm: cpm, wpm: wpm, accuracy: acc, errors: wrongKeys, chars: chars.length, source: sourceId, length: lengthId });
         if (prevBest === null || cpm > prevBest) App.ui.toast("🏆 Новий рекорд друку: " + cpm + " зн/хв");
       }
       progFill.style.width = "100%";
@@ -234,6 +234,53 @@ App.modules.typing = (function () {
 
     const recordsBox = h("div");
 
+    function recLen(r) {
+      if (r.length) return r.length;
+      const c = typeof r.chars === "number" ? r.chars : 300;
+      return c < 215 ? "s" : c < 425 ? "m" : "l"; // межі між цілями 130/300/550
+    }
+
+    function renderMatrix() {
+      const recs = App.store.records("typing").filter(function (r) {
+        return typeof r.cpm === "number" && r.cpm <= MAX_CPM;
+      });
+      const best = {}; // best[source][lenId] = record; для custom — best.custom.x
+      let top = 0;
+      recs.forEach(function (r) {
+        const src = r.source || "ua";
+        const key = src === "custom" ? "x" : recLen(r);
+        best[src] = best[src] || {};
+        if (!best[src][key] || r.cpm > best[src][key].cpm) best[src][key] = r;
+        if (r.cpm > top) top = r.cpm;
+      });
+      function cell(rec) {
+        if (!rec) return h("td", { class: "muted" }, "—");
+        const isTop = rec.cpm === top;
+        return h("td", { style: isTop ? "color:var(--yellow);font-weight:900" : "font-weight:800" },
+          (isTop ? "🏆 " : "") + rec.cpm,
+          h("span", { class: "muted small" }, " · " + rec.accuracy + "%"));
+      }
+      const rows = ["ua", "twist", "en"].map(function (srcId) {
+        const src = SOURCES.find(function (s) { return s.id === srcId; });
+        const row = best[srcId] || {};
+        return h("tr", null, h("td", null, src.label), cell(row.s), cell(row.m), cell(row.l));
+      });
+      const cRec = (best.custom || {}).x;
+      const customRow = h("tr", null,
+        h("td", null, SOURCES.find(function (s) { return s.id === "custom"; }).label),
+        cRec
+          ? h("td", { colspan: "3", style: "text-align:center;font-weight:800" }, String(cRec.cpm),
+            h("span", { class: "muted small" }, " · " + cRec.accuracy + "% · будь-яка довжина"))
+          : h("td", { colspan: "3", class: "muted", style: "text-align:center" }, "—"));
+      return h("div", { class: "card" },
+        h("h2", null, "🏆 Рекорди за режимами"),
+        h("div", { class: "muted small", style: "margin-bottom:10px" },
+          "Найкраща швидкість (зн/хв) для кожного джерела й довжини."),
+        h("table", { class: "results" },
+          h("tr", null, h("th", null, "Джерело"), h("th", null, "Короткий"), h("th", null, "Середній"), h("th", null, "Довгий")),
+          rows, customRow));
+    }
+
     function renderRecords() {
       recordsBox.innerHTML = "";
       const recs = App.store.records("typing");
@@ -256,6 +303,7 @@ App.modules.typing = (function () {
               h("td", null, src ? src.label : r.source),
               h("td", null, App.ui.fmtDate(r.date)));
           })) : null));
+      recordsBox.append(renderMatrix());
     }
 
     const sourceSel = h("select", null, SOURCES.map(function (s) {
