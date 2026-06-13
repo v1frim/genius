@@ -17,10 +17,47 @@ App.modules.dashboard = (function () {
 
   function taskKey(t) { return (t.period === "daily" ? "d:" : "w:") + t.id; }
 
+  /* Автозарахування задач за реальною грою. Ключ — id стандартної задачі;
+     умова рахується із сьогоднішніх (чи тижневих) записів/часу. */
+  function recsToday(cat) {
+    const today = App.store.todayStr();
+    return App.store.records(cat).filter(function (r) { return r.date === today; });
+  }
+  function recsThisWeek(cat) {
+    const mon = App.store.mondayStr();
+    return App.store.records(cat).filter(function (r) { return r.date >= mon; });
+  }
+  const TASK_TRACKERS = {
+    schulte: function () { const n = recsToday("schulte").filter(function (r) { return r.size === 5; }).length; return { done: n >= 3, sub: n + "/3" }; },
+    rsvp: function () { const m = Math.floor(App.store.timeToday("reading") / 60000); return { done: m >= 10, sub: m + "/10 хв" }; },
+    typing: function () { const n = recsToday("typing").filter(function (r) { return (r.source || "ua") === "ua"; }).length; return { done: n >= 3, sub: n + "/3" }; },
+    twisters: function () { const n = App.store.state.twisterByDay[App.store.todayStr()] || 0; return { done: n >= 5, sub: n + "/5" }; },
+    arith: function () { const n = recsToday("arithmetic").filter(function (r) { return r.mode === "s60"; }).length; return { done: n >= 1, sub: n + "/1" }; },
+    memory: function () { const n = recsToday("digitSpan").length; return { done: n >= 1, sub: n ? "✓" : "0/1" }; },
+    med: function () { const m = Math.floor(App.store.timeToday("meditation") / 60000); return { done: m >= 15, sub: m + "/15 хв" }; },
+    rtest: function () { const n = recsThisWeek("reading").filter(function (r) { return r.kind === "test"; }).length; return { done: n >= 1, sub: n ? "✓" : "0/1" }; },
+    longmed: function () { const n = recsThisWeek("meditation").filter(function (r) { return (r.minutes || 0) >= 45; }).length; return { done: n >= 1, sub: n ? "✓" : "0/1" }; },
+  };
+  function taskAuto(t) { const fn = TASK_TRACKERS[t.id]; return fn ? fn() : null; }
+  function taskDone(t) {
+    const a = taskAuto(t);
+    return (a && a.done) || !!App.store.state.taskState[taskKey(t)];
+  }
+  function syncAutoTasks() {
+    const st = App.store.state;
+    if (!st || !st.tasks) return;
+    let changed = false;
+    st.tasks.forEach(function (t) {
+      const a = taskAuto(t);
+      if (a && a.done && !st.taskState[taskKey(t)]) { st.taskState[taskKey(t)] = true; changed = true; }
+    });
+    if (changed) App.store.save();
+  }
+
   function todayPct() {
     const tasks = dailyTasks();
     if (!tasks.length) return 0;
-    const done = tasks.filter(function (t) { return App.store.state.taskState[taskKey(t)]; }).length;
+    const done = tasks.filter(taskDone).length;
     return Math.round(done / tasks.length * 100);
   }
 
@@ -42,22 +79,27 @@ App.modules.dashboard = (function () {
   function renderTaskRow(t, rerender) {
     const st = App.store.state;
     const key = taskKey(t);
-    const done = !!st.taskState[key];
-    const cb = h("input", {
-      type: "checkbox",
-      onchange: function () {
+    const auto = taskAuto(t);
+    const done = auto ? (auto.done || !!st.taskState[key]) : !!st.taskState[key];
+    const cb = h("input", { type: "checkbox" });
+    cb.checked = done;
+    if (auto) {
+      cb.disabled = true;
+      cb.title = "Відмічається автоматично за твоєю грою";
+    } else {
+      cb.addEventListener("change", function () {
         if (cb.checked) st.taskState[key] = true;
         else delete st.taskState[key];
         App.store.save();
         rerender();
-      },
-    });
-    cb.checked = done;
+      });
+    }
     const kids = [
       cb,
       h("span", null, t.emoji || "•"),
       h("span", { class: "t-title" }, t.title),
     ];
+    if (auto) kids.push(h("span", { class: "badge auto", title: "Зараховується грою автоматично" }, auto.done ? "авто ✓" : "авто " + auto.sub));
     if (t.link) {
       const external = t.link.indexOf("http") === 0;
       kids.push(h("a", {
@@ -234,5 +276,5 @@ App.modules.dashboard = (function () {
     return null;
   }
 
-  return { id: "dashboard", title: "Сьогодні", icon: "🏠", render: render, todayPct: todayPct, calcStreak: calcStreak };
+  return { id: "dashboard", title: "Головна", icon: "🏠", render: render, todayPct: todayPct, calcStreak: calcStreak, syncAutoTasks: syncAutoTasks };
 })();
