@@ -86,7 +86,7 @@ App.modules.schulte = (function () {
     const marathonEl = h("div", { class: "yellow", style: "font-weight:800;display:none" });
     const nextEl = h("div", { class: "muted", style: "font-weight:800;font-size:1.1rem;min-width:90px" }, "—");
     const errEl = h("div", { class: "muted", style: "font-weight:800" }, "");
-    const recordEl = h("div", { class: "tiny", style: "font-weight:800;color:var(--muted)" }, "");
+    const recordEl = h("div", { class: "schulte-records" });
     const todayEl = h("div", { class: "tiny muted", style: "font-weight:700" });
     const grid = h("div", { class: "schulte-grid" });
     const sidePanel = h("div", { class: "schulte-side" });
@@ -175,12 +175,25 @@ App.modules.schulte = (function () {
       updateToday();
     }
 
-    /* поточний рекорд для вибраного розміру (і режиму) — у hud, під часом */
+    /* найкращий час для розміру (будь-який режим, окремі ігри + ігри марафону) */
+    function bestAnyMode(sz) {
+      let best = null;
+      App.store.records("schulte").forEach(function (r) {
+        if (!r.marathon && r.size === sz && (best === null || r.timeMs < best)) best = r.timeMs;
+      });
+      return best;
+    }
+
+    /* рекорди по всіх розмірах — у hud, поточний підсвічений */
     function updateRecord() {
-      const best = bestFor(size, modeKey(opts));
       recordEl.innerHTML = "";
-      recordEl.append("🏆 рекорд " + size + "×" + size + ": ",
-        h("span", { style: "color:var(--yellow);font-weight:900" }, best !== null ? App.ui.fmtMs(best) : "—"));
+      recordEl.append(h("div", { class: "tiny muted", style: "font-weight:800;margin-bottom:3px" }, "🏆 рекорди"));
+      SIZES.forEach(function (sz) {
+        const best = bestAnyMode(sz);
+        recordEl.append(h("div", { class: "rec-row" + (sz === size ? " cur" : "") },
+          h("span", null, sz + "×" + sz),
+          h("span", null, best !== null ? App.ui.fmtMs(best) : "—")));
+      });
     }
 
     /* зіграний час у Шульте за сьогодні (сума тривалостей завершених ігор) */
