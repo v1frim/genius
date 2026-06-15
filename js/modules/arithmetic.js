@@ -133,10 +133,9 @@ App.modules.arithmetic = (function () {
     function submit() {
       if (!running) return;
       const raw = answerIn.value.trim().replace(",", ".");
-      if (raw === "") return;
       const val = Number(raw);
-      if (val === task.answer) { correct++; flash(true); }
-      else { wrong++; flash(false); App.ui.toast(task.text + " = " + task.answer, "info"); }
+      if (raw !== "" && val === task.answer) { correct++; flash(true); }
+      else { wrong++; flash(false); App.ui.toast(task.text + " = " + task.answer, "info"); } // порожнє/невірне = помилка
       nextTask();
     }
 
