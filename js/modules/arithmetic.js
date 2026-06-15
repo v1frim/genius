@@ -213,6 +213,12 @@ App.modules.arithmetic = (function () {
       if (e.key === "Enter") { e.preventDefault(); submit(); }
     });
 
+    /* Esc завершує гру — як кнопка внизу (у лімітних режимах не зараховує) */
+    function onEsc(e) {
+      if (e.key === "Escape" && running) { e.preventDefault(); finish(!modeDef().free); }
+    }
+    document.addEventListener("keydown", onEsc);
+
     /* налаштування */
     const levelChips = h("div", { class: "row" });
     [1, 2, 3, 4, 5].forEach(function (l) {
@@ -290,7 +296,7 @@ App.modules.arithmetic = (function () {
 
     App.primaryAction = function () { if (!running) { start(); return true; } return false; };
 
-    return function cleanup() { stopTimer(); running = false; };
+    return function cleanup() { stopTimer(); running = false; document.removeEventListener("keydown", onEsc); };
   }
 
   return { id: "arithmetic", title: "Арифметика", icon: "➗", render: render };

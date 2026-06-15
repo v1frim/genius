@@ -86,6 +86,7 @@ App.modules.schulte = (function () {
     const marathonEl = h("div", { class: "yellow", style: "font-weight:800;display:none" });
     const nextEl = h("div", { class: "muted", style: "font-weight:800;font-size:1.1rem;min-width:90px" }, "—");
     const errEl = h("div", { class: "muted", style: "font-weight:800" }, "");
+    const recordEl = h("div", { class: "tiny", style: "font-weight:800;color:var(--muted)" }, "");
     const todayEl = h("div", { class: "tiny muted", style: "font-weight:700" });
     const grid = h("div", { class: "schulte-grid" });
     const sidePanel = h("div", { class: "schulte-side" });
@@ -170,7 +171,16 @@ App.modules.schulte = (function () {
       } else {
         marathonEl.style.display = "none";
       }
+      updateRecord();
       updateToday();
+    }
+
+    /* поточний рекорд для вибраного розміру (і режиму) — у hud, під часом */
+    function updateRecord() {
+      const best = bestFor(size, modeKey(opts));
+      recordEl.innerHTML = "";
+      recordEl.append("🏆 рекорд " + size + "×" + size + ": ",
+        h("span", { style: "color:var(--yellow);font-weight:900" }, best !== null ? App.ui.fmtMs(best) : "—"));
     }
 
     /* зіграний час у Шульте за сьогодні (сума тривалостей завершених ігор) */
@@ -475,7 +485,7 @@ App.modules.schulte = (function () {
       h("div", { class: "schulte-wrap fade-in" },
         h("div", { class: "schulte-stage" },
           h("div", { class: "schulte-hud" },
-            timerEl, marathonEl, nextEl, errEl,
+            timerEl, recordEl, marathonEl, nextEl, errEl,
             h("div", { class: "row", style: "margin-top:8px" }, stopBtn),
             todayEl),
           grid),
