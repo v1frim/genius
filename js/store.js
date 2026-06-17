@@ -64,19 +64,21 @@ App.store = (function () {
     });
     if (!state.tasks) state.tasks = JSON.parse(JSON.stringify(App.data.defaultTasks));
     if (!state.goals) state.goals = JSON.parse(JSON.stringify(App.data.defaultGoals));
-    ensureEngPlanTasks();
+    migrateTasks();
     rollover();
     save();
   }
 
-  /* Авто-задачі «планів» англійської (інтеграція з Oxford 1000): один щоденний
-     трекер на 2 плани (X/2) і один щотижневий на 14 (X/14). Прибирає старий ручний
-     пункт «Англійська: за своєю системою» та попередній дворядковий варіант.
-     Версійний прапор робить онову одноразовою, але самовиправною; після неї
-     користувач може видалити трекери назовсім — повторно не додаються. */
-  function ensureEngPlanTasks() {
-    if (state.engPlanV >= 2) return;
-    var drop = { eng: 1, engPlan1: 1, engPlan2: 1 };
+  /* Одноразові міграції списку задач (версія — у state.engPlanV):
+       1) інтеграція з Oxford 1000: додає щоденний трекер «2 плани» (X/2) і
+          щотижневий «14 планів» (X/14), прибирає старий ручний пункт
+          «Англійська: за своєю системою» та попередній дворядковий варіант;
+       2) прибирає зняту щоденну задачу «Журнал Шерлока».
+     Прапор робить онову одноразовою, але самовиправною; після неї користувач
+     може вільно додавати/видаляти ці задачі — повторно не нав'язуються. */
+  function migrateTasks() {
+    if (state.engPlanV >= 3) return;
+    var drop = { eng: 1, engPlan1: 1, engPlan2: 1, observe: 1 };
     state.tasks = state.tasks.filter(function (t) { return !drop[t.id]; });
     if (state.taskState) Object.keys(drop).forEach(function (id) { delete state.taskState['d:' + id]; });
     var defs = [
@@ -87,7 +89,7 @@ App.store = (function () {
     state.tasks.forEach(function (t) { have[t.id] = true; });
     defs.forEach(function (def) { if (!have[def.id]) state.tasks.push(def); });
     delete state.engPlanInit;
-    state.engPlanV = 2;
+    state.engPlanV = 3;
   }
 
   /* Перенесення дня/тижня: фіксуємо вчорашній прогрес і скидаємо чекбокси */

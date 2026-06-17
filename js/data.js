@@ -16,7 +16,6 @@ App.data.defaultTasks = [
   { id: "med", emoji: "🧘", title: "Медитація: 15+ хв", period: "daily", link: "#/meditation" },
   { id: "breath", emoji: "🫁", title: "5 пауз усвідомленого дихання по 1 хв", period: "daily" },
   { id: "charisma", emoji: "🎭", title: "Харизма: 1 відео + застосувати 1 прийом", period: "daily", link: "https://www.youtube.com/@charismaoncommand_ru" },
-  { id: "observe", emoji: "🔍", title: "Журнал Шерлока: записати 3 помічені деталі", period: "daily" },
   { id: "book", emoji: "📚", title: "Читання книги: 30 хв", period: "daily" },
   { id: "sport", emoji: "🏋️", title: "Спорт: тренування або 10 000 кроків", period: "daily" },
   { id: "engPlanDay", emoji: "🇬🇧", title: "Англійська: 2 плани (по 4 бали)", period: "daily", link: "https://v1frim.github.io/Oxford_1000/" },
