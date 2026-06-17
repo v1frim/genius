@@ -64,8 +64,27 @@ App.store = (function () {
     });
     if (!state.tasks) state.tasks = JSON.parse(JSON.stringify(App.data.defaultTasks));
     if (!state.goals) state.goals = JSON.parse(JSON.stringify(App.data.defaultGoals));
+    ensureEngPlanTasks();
     rollover();
     save();
+  }
+
+  /* Одноразово: ввести авто-задачі «планів» англійської (інтеграція з Oxford 1000)
+     у вже збережений стан і прибрати старий ручний пункт «Англійська: за своєю системою».
+     Після цього користувач може вільно їх видаляти — повторно не додаються. */
+  function ensureEngPlanTasks() {
+    if (state.engPlanInit) return;
+    state.tasks = state.tasks.filter(function (t) { return t.id !== 'eng'; });
+    if (state.taskState) delete state.taskState['d:eng'];
+    var defs = [
+      { id: 'engPlan1', emoji: '🇬🇧', title: 'Англійська: план 1 (4 бали в Oxford)', period: 'daily', link: 'https://v1frim.github.io/Oxford_1000/' },
+      { id: 'engPlan2', emoji: '🇬🇧', title: 'Англійська: план 2 (ще 4 бали)', period: 'daily', link: 'https://v1frim.github.io/Oxford_1000/' },
+      { id: 'engPlanWeek', emoji: '🇬🇧', title: 'Англійська: 14 планів за тиждень', period: 'weekly', link: 'https://v1frim.github.io/Oxford_1000/' },
+    ];
+    var have = {};
+    state.tasks.forEach(function (t) { have[t.id] = true; });
+    defs.forEach(function (def) { if (!have[def.id]) state.tasks.push(def); });
+    state.engPlanInit = true;
   }
 
   /* Перенесення дня/тижня: фіксуємо вчорашній прогрес і скидаємо чекбокси */
