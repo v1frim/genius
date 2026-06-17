@@ -19,8 +19,7 @@ App.data.defaultTasks = [
   { id: "observe", emoji: "🔍", title: "Журнал Шерлока: записати 3 помічені деталі", period: "daily" },
   { id: "book", emoji: "📚", title: "Читання книги: 30 хв", period: "daily" },
   { id: "sport", emoji: "🏋️", title: "Спорт: тренування або 10 000 кроків", period: "daily" },
-  { id: "engPlan1", emoji: "🇬🇧", title: "Англійська: план 1 (4 бали в Oxford)", period: "daily", link: "https://v1frim.github.io/Oxford_1000/" },
-  { id: "engPlan2", emoji: "🇬🇧", title: "Англійська: план 2 (ще 4 бали)", period: "daily", link: "https://v1frim.github.io/Oxford_1000/" },
+  { id: "engPlanDay", emoji: "🇬🇧", title: "Англійська: 2 плани (по 4 бали)", period: "daily", link: "https://v1frim.github.io/Oxford_1000/" },
 
   { id: "rtest", emoji: "📏", title: "Замір швидкості читання (тест із питаннями)", period: "weekly", link: "#/reading" },
   { id: "trecord", emoji: "⏱️", title: "Рекордний заїзд із друку", period: "weekly", link: "#/typing" },

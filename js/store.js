@@ -69,22 +69,25 @@ App.store = (function () {
     save();
   }
 
-  /* Одноразово: ввести авто-задачі «планів» англійської (інтеграція з Oxford 1000)
-     у вже збережений стан і прибрати старий ручний пункт «Англійська: за своєю системою».
-     Після цього користувач може вільно їх видаляти — повторно не додаються. */
+  /* Авто-задачі «планів» англійської (інтеграція з Oxford 1000): один щоденний
+     трекер на 2 плани (X/2) і один щотижневий на 14 (X/14). Прибирає старий ручний
+     пункт «Англійська: за своєю системою» та попередній дворядковий варіант.
+     Версійний прапор робить онову одноразовою, але самовиправною; після неї
+     користувач може видалити трекери назовсім — повторно не додаються. */
   function ensureEngPlanTasks() {
-    if (state.engPlanInit) return;
-    state.tasks = state.tasks.filter(function (t) { return t.id !== 'eng'; });
-    if (state.taskState) delete state.taskState['d:eng'];
+    if (state.engPlanV >= 2) return;
+    var drop = { eng: 1, engPlan1: 1, engPlan2: 1 };
+    state.tasks = state.tasks.filter(function (t) { return !drop[t.id]; });
+    if (state.taskState) Object.keys(drop).forEach(function (id) { delete state.taskState['d:' + id]; });
     var defs = [
-      { id: 'engPlan1', emoji: '🇬🇧', title: 'Англійська: план 1 (4 бали в Oxford)', period: 'daily', link: 'https://v1frim.github.io/Oxford_1000/' },
-      { id: 'engPlan2', emoji: '🇬🇧', title: 'Англійська: план 2 (ще 4 бали)', period: 'daily', link: 'https://v1frim.github.io/Oxford_1000/' },
+      { id: 'engPlanDay', emoji: '🇬🇧', title: 'Англійська: 2 плани (по 4 бали)', period: 'daily', link: 'https://v1frim.github.io/Oxford_1000/' },
       { id: 'engPlanWeek', emoji: '🇬🇧', title: 'Англійська: 14 планів за тиждень', period: 'weekly', link: 'https://v1frim.github.io/Oxford_1000/' },
     ];
     var have = {};
     state.tasks.forEach(function (t) { have[t.id] = true; });
     defs.forEach(function (def) { if (!have[def.id]) state.tasks.push(def); });
-    state.engPlanInit = true;
+    delete state.engPlanInit;
+    state.engPlanV = 2;
   }
 
   /* Перенесення дня/тижня: фіксуємо вчорашній прогрес і скидаємо чекбокси */

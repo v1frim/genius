@@ -37,10 +37,9 @@ App.modules.dashboard = (function () {
     med: function () { const m = Math.floor(App.store.timeToday("meditation") / 60000); return { done: m >= 15, sub: m + "/15 хв" }; },
     rtest: function () { const n = recsThisWeek("reading").filter(function (r) { return r.kind === "test"; }).length; return { done: n >= 1, sub: n ? "✓" : "0/1" }; },
     longmed: function () { const n = recsThisWeek("meditation").filter(function (r) { return (r.minutes || 0) >= 45; }).length; return { done: n >= 1, sub: n ? "✓" : "0/1" }; },
-    // Англійська: «плани» Oxford 1000 — підтягуються зі спільного localStorage (App.oxford).
-    engPlan1: function () { const p = App.oxford ? App.oxford.pointsToday() : 0; return { done: p >= 4, sub: Math.min(p, 4) + "/4 п." }; },
-    engPlan2: function () { const p = App.oxford ? App.oxford.pointsToday() : 0; return { done: p >= 8, sub: Math.max(0, Math.min(p - 4, 4)) + "/4 п." }; },
-    engPlanWeek: function () { const pl = App.oxford ? App.oxford.plansThisWeek() : 0; return { done: pl >= 14, sub: Math.min(pl, 14) + "/14 планів" }; },
+    // Англійська: «плани» Oxford 1000 зі спільного localStorage (App.oxford). 1 план = 4 бали.
+    engPlanDay: function () { const pl = App.oxford ? App.oxford.plansToday() : 0; return { done: pl >= 2, sub: Math.min(pl, 2) + "/2" }; },
+    engPlanWeek: function () { const pl = App.oxford ? App.oxford.plansThisWeek() : 0; return { done: pl >= 14, sub: Math.min(pl, 14) + "/14" }; },
   };
   function taskAuto(t) { const fn = TASK_TRACKERS[t.id]; return fn ? fn() : null; }
   function taskDone(t) {
