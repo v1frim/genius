@@ -64,8 +64,30 @@ App.store = (function () {
     });
     if (!state.tasks) state.tasks = JSON.parse(JSON.stringify(App.data.defaultTasks));
     if (!state.goals) state.goals = JSON.parse(JSON.stringify(App.data.defaultGoals));
+    ensureEngPlanTasks();
     rollover();
     save();
+  }
+
+  /* Авто-задачі «планів» англійської (інтеграція з Oxford 1000): один щоденний
+     трекер на 2 плани (X/2) і один щотижневий на 14 (X/14). Прибирає старий ручний
+     пункт «Англійська: за своєю системою» та попередній дворядковий варіант.
+     Версійний прапор робить онову одноразовою, але самовиправною; після неї
+     користувач може видалити трекери назовсім — повторно не додаються. */
+  function ensureEngPlanTasks() {
+    if (state.engPlanV >= 2) return;
+    var drop = { eng: 1, engPlan1: 1, engPlan2: 1 };
+    state.tasks = state.tasks.filter(function (t) { return !drop[t.id]; });
+    if (state.taskState) Object.keys(drop).forEach(function (id) { delete state.taskState['d:' + id]; });
+    var defs = [
+      { id: 'engPlanDay', emoji: '🇬🇧', title: 'Англійська: 2 плани (по 4 бали)', period: 'daily', link: 'https://v1frim.github.io/Oxford_1000/' },
+      { id: 'engPlanWeek', emoji: '🇬🇧', title: 'Англійська: 14 планів за тиждень', period: 'weekly', link: 'https://v1frim.github.io/Oxford_1000/' },
+    ];
+    var have = {};
+    state.tasks.forEach(function (t) { have[t.id] = true; });
+    defs.forEach(function (def) { if (!have[def.id]) state.tasks.push(def); });
+    delete state.engPlanInit;
+    state.engPlanV = 2;
   }
 
   /* Перенесення дня/тижня: фіксуємо вчорашній прогрес і скидаємо чекбокси */
