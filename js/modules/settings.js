@@ -37,7 +37,7 @@ App.modules.settings = (function () {
       }
     }
     const syncCard = h("div", { class: "card fade-in" },
-      h("h2", null, "☁️ Синхронізація між пристроями ", h("span", { class: "tiny muted" }, "(складання 5)")),
+      h("h2", null, "☁️ Синхронізація між пристроями ", h("span", { class: "tiny muted" }, "(складання 6)")),
       syncBody);
     if (App.sync) App.sync.onStatus(renderSync); else renderSync({ available: false });
 
@@ -112,7 +112,7 @@ App.modules.settings = (function () {
       h("div", { class: "card fade-in" },
         h("h2", null, "Про сайт"),
         h("div", { class: "small", style: "color:var(--muted);line-height:1.7" },
-          "«ГЕНІЙ» — особистий тренажерний зал для мозку: Шульте, швидкочитання (RSVP), друк українською, ",
+          "«Genius» — особистий тренажерний зал для мозку: Шульте, швидкочитання (RSVP), друк українською, ",
           "скоромовки з генератором, усний рахунок, робоча пам'ять, медитація та трекер цілей.", h("br"),
           "Працює повністю офлайн, без сервера. Код легко розширювати — кожен тренажер це окремий модуль у js/modules/.")));
 

@@ -2,7 +2,7 @@
    Стратегія «спершу мережа»: коли є інтернет — завжди вантажиться найновіша
    версія з сайту, а кеш слугує лише запасним варіантом для офлайну. Тому при
    оновленні сайту застосунок на телефоні теж оновлюється сам. */
-const VERSION = 'genius-cache-v5';
+const VERSION = 'genius-cache-v6';
 const ASSETS = [
   '.', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/store.js', 'js/oxford.js', 'js/sync.js', 'js/ui.js', 'js/data.js', 'js/data.prose.js',
