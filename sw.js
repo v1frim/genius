@@ -2,10 +2,11 @@
    Стратегія «спершу мережа»: коли є інтернет — завжди вантажиться найновіша
    версія з сайту, а кеш слугує лише запасним варіантом для офлайну. Тому при
    оновленні сайту застосунок на телефоні теж оновлюється сам. */
-const VERSION = 'genius-cache-v2';
+const VERSION = 'genius-cache-v3';
 const ASSETS = [
   '.', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/store.js', 'js/oxford.js', 'js/sync.js', 'js/ui.js', 'js/data.js', 'js/data.prose.js',
+  'js/vendor/firebase-app-compat.js', 'js/vendor/firebase-auth-compat.js', 'js/vendor/firebase-firestore-compat.js',
   'js/modules/dashboard.js', 'js/modules/schulte.js', 'js/modules/reading.js',
   'js/modules/typing.js', 'js/modules/twisters.js', 'js/modules/arithmetic.js',
   'js/modules/memory.js', 'js/modules/meditation.js', 'js/modules/goals.js',

@@ -51,11 +51,11 @@
   <script src="js/modules/settings.js"></script>
   <script src="js/app.js"></script>
 
-  <!-- Firebase (compat) для синхронізації між пристроями. Вантажиться з CDN;
-       офлайн просто пропускається — застосунок працює локально. -->
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <!-- Firebase (compat) для синхронізації. Лежить поряд із сайтом (same-origin),
+       щоб надійно вантажитись і кешуватись у встановленому PWA (а не з gstatic). -->
+  <script src="js/vendor/firebase-app-compat.js"></script>
+  <script src="js/vendor/firebase-auth-compat.js"></script>
+  <script src="js/vendor/firebase-firestore-compat.js"></script>
   <script src="js/sync.js"></script>
 
   <script>
