@@ -15,8 +15,9 @@ App.modules.settings = (function () {
     function renderSync(st) {
       syncBody.innerHTML = "";
       if (!st || !st.available) {
+        const fb = (typeof firebase !== 'undefined') ? "Firebase завантажився, але не запустився" : "скрипти Firebase не завантажились";
         syncBody.append(h("div", { class: "small", style: "color:var(--muted)" },
-          "Зараз недоступна (немає мережі або не завантажився Firebase). Прогрес зберігається локально — синхронізація під'єднається, щойно буде інтернет."));
+          "Зараз недоступна (" + fb + "). Прогрес зберігається локально — синхронізація під'єднається, щойно буде інтернет."));
         return;
       }
       if (!st.signedIn) {
@@ -35,7 +36,9 @@ App.modules.settings = (function () {
           h("button", { class: "btn ghost", onclick: function () { App.sync.signOut(); } }, "Вийти"));
       }
     }
-    const syncCard = h("div", { class: "card fade-in" }, h("h2", null, "☁️ Синхронізація між пристроями"), syncBody);
+    const syncCard = h("div", { class: "card fade-in" },
+      h("h2", null, "☁️ Синхронізація між пристроями ", h("span", { class: "tiny muted" }, "(складання 4)")),
+      syncBody);
     if (App.sync) App.sync.onStatus(renderSync); else renderSync({ available: false });
 
     root.append(
