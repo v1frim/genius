@@ -129,6 +129,18 @@ App.store = (function () {
     } catch (e) {
       console.error('Не вдалося зберегти', e);
     }
+    if (typeof App.onStateSaved === 'function') App.onStateSaved();
+  }
+
+  /* Повна заміна стану (використовує хмарна синхронізація) */
+  function replaceState(obj) {
+    if (!obj || typeof obj !== 'object') return;
+    state = obj;
+    const fresh = emptyState();
+    Object.keys(fresh).forEach(function (k) { if (state[k] === undefined) state[k] = fresh[k]; });
+    if (!state.records || typeof state.records !== 'object') state.records = fresh.records;
+    RECORD_CATS.forEach(function (c) { if (!Array.isArray(state.records[c])) state.records[c] = []; });
+    save();
   }
 
   function addRecord(cat, data) {
@@ -205,6 +217,7 @@ App.store = (function () {
   return {
     load: load,
     save: save,
+    replaceState: replaceState,
     rollover: function () { rollover(); save(); },
     get state() { return state; },
     addRecord: addRecord,

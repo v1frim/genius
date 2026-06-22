@@ -135,6 +135,7 @@
     }
   });
 
+  App.rerender = navigate; // дає змогу хмарній синхронізації перемалювати поточний екран
   App.store.load();
   window.addEventListener("hashchange", navigate);
   navigate();

@@ -10,9 +10,39 @@ App.modules.settings = (function () {
 
     const importArea = h("textarea", { rows: 6, placeholder: "Встав сюди JSON з експорту…", style: "font-size:0.78rem;font-family:monospace" });
 
+    // ── Хмарна синхронізація між пристроями ──
+    const syncBody = h("div", null);
+    function renderSync(st) {
+      syncBody.innerHTML = "";
+      if (!st || !st.available) {
+        syncBody.append(h("div", { class: "small", style: "color:var(--muted)" },
+          "Зараз недоступна (немає мережі або не завантажився Firebase). Прогрес зберігається локально — синхронізація під'єднається, щойно буде інтернет."));
+        return;
+      }
+      if (!st.signedIn) {
+        syncBody.append(
+          h("div", { class: "small", style: "margin-bottom:10px;color:var(--muted)" },
+            "Увійди через Google — і прогрес стане однаковим на ПК і телефоні (відмітив на одному — оновилось на іншому). ",
+            h("b", null, "Порада:"), " спершу увійди там, де вже є твій прогрес (на ПК)."),
+          h("button", { class: "btn green", onclick: function () { App.sync.signIn(); } }, "Увійти через Google"));
+      } else {
+        const lbl = st.state === 'synced' ? "синхронізовано ✓"
+          : st.state === 'connecting' ? "з'єднання…"
+          : st.state === 'error' ? "помилка (спробую ще раз)" : "…";
+        syncBody.append(
+          h("div", { class: "small", style: "margin-bottom:6px" }, "Акаунт: ", h("b", null, st.email || "—")),
+          h("div", { class: "small", style: "margin-bottom:12px;color:var(--muted)" }, "Стан: " + lbl),
+          h("button", { class: "btn ghost", onclick: function () { App.sync.signOut(); } }, "Вийти"));
+      }
+    }
+    const syncCard = h("div", { class: "card fade-in" }, h("h2", null, "☁️ Синхронізація між пристроями"), syncBody);
+    if (App.sync) App.sync.onStatus(renderSync); else renderSync({ available: false });
+
     root.append(
       h("h1", { class: "page-title" }, "⚙️ Дані"),
-      h("div", { class: "page-sub" }, "Весь прогрес зберігається локально у цьому браузері (localStorage). Періодично роби експорт!"),
+      h("div", { class: "page-sub" }, "Прогрес зберігається локально (localStorage). Увімкни синхронізацію нижче — або періодично роби експорт."),
+
+      syncCard,
 
       h("div", { class: "card fade-in" },
         h("h2", null, "Експорт"),
@@ -83,7 +113,7 @@ App.modules.settings = (function () {
           "скоромовки з генератором, усний рахунок, робоча пам'ять, медитація та трекер цілей.", h("br"),
           "Працює повністю офлайн, без сервера. Код легко розширювати — кожен тренажер це окремий модуль у js/modules/.")));
 
-    return null;
+    return function () { if (App.sync) App.sync.offStatus(renderSync); };
   }
 
   return { id: "settings", title: "Дані", icon: "⚙️", render: render };
