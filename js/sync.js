@@ -45,7 +45,40 @@ App.sync = (function () {
   function offStatus(fn) { listeners = listeners.filter(function (x) { return x !== fn; }); }
 
   function init() {
-    if (typeof firebase === 'undefined' || !firebase.initializeApp) { setStatus({ available: false, state: 'offline' }); return; }
+    // Якщо статичні теги Firebase не завантажились (буває після повернення з
+    // редіректу в standalone-PWA) — дотягуємо SDK динамічно й тоді ініціалізуємо.
+    if (typeof firebase === 'undefined' || !firebase.initializeApp || !firebase.firestore) {
+      loadFirebaseScripts(function (ok) {
+        if (ok) realInit(); else setStatus({ available: false, state: 'offline' });
+      });
+      return;
+    }
+    realInit();
+  }
+
+  function loadFirebaseScripts(cb) {
+    if (typeof document === 'undefined') { cb(false); return; }
+    var files = [
+      'js/vendor/firebase-app-compat.js',
+      'js/vendor/firebase-auth-compat.js',
+      'js/vendor/firebase-firestore-compat.js'
+    ];
+    var i = 0;
+    (function next() {
+      if (i >= files.length) {
+        cb(typeof firebase !== 'undefined' && !!firebase.initializeApp && !!firebase.firestore);
+        return;
+      }
+      var s = document.createElement('script');
+      s.src = files[i++];
+      s.async = false;
+      s.onload = next;
+      s.onerror = function () { cb(false); };
+      document.head.appendChild(s);
+    })();
+  }
+
+  function realInit() {
     try {
       firebase.initializeApp(firebaseConfig);
       auth = firebase.auth();
@@ -120,9 +153,9 @@ App.sync = (function () {
   function signIn() {
     if (!auth) { App.ui && App.ui.toast && App.ui.toast('Хмара недоступна (немає мережі)', 'info'); return; }
     var provider = new firebase.auth.GoogleAuthProvider();
-    var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone;
     setStatus({ state: 'connecting' });
-    if (standalone) { auth.signInWithRedirect(provider); return; } // у встановленому PWA редірект надійніший
+    // Попап тримає сторінку відкритою (на iOS у встановленому PWA повний редірект
+    // ламає завантаження Firebase). Якщо попап не підтримується — редірект як запас.
     auth.signInWithPopup(provider).catch(function (e) {
       if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/cancelled-popup-request' || e.code === 'auth/operation-not-supported-in-this-environment')) {
         auth.signInWithRedirect(provider);
