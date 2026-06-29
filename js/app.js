@@ -11,6 +11,7 @@
     App.modules.arithmetic,
     App.modules.memory,
     App.modules.meditation,
+    App.modules.charisma,
     App.modules.goals,
     App.modules.settings,
   ];
