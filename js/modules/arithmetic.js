@@ -229,7 +229,7 @@ App.modules.arithmetic = (function () {
           Array.prototype.forEach.call(levelChips.children, function (el, i) {
             el.classList.toggle("active", i + 1 === level);
           });
-          running = false; renderIdle();
+          running = false; renderIdle(); renderRecords();
         },
       }, String(l)));
     });
@@ -257,15 +257,52 @@ App.modules.arithmetic = (function () {
     modeSel.addEventListener("change", function () {
       modeId = modeSel.value; savePrefs();
       if (!running) renderIdle();
+      renderRecords();
     });
+
+    /* найкращий запис (за к-стю правильних) для пари режим×рівень */
+    function bestRecord(mId, lvl) {
+      let best = null;
+      App.store.records("arithmetic").forEach(function (r) {
+        if (r.mode === mId && r.level === lvl && (best === null || r.correct > best.correct)) best = r;
+      });
+      return best;
+    }
+
+    /* матриця рекордів: рядки — рівні 1–5, стовпці — режими */
+    function renderMatrix() {
+      const head = h("tr", null, h("th", null, "Рівень"),
+        MODES.map(function (m) { return h("th", null, m.label); }));
+      const body = [1, 2, 3, 4, 5].map(function (lvl) {
+        return h("tr", null,
+          h("td", { style: "font-weight:800;color:var(--text)" }, String(lvl)),
+          MODES.map(function (m) {
+            const b = bestRecord(m.id, lvl);
+            const isCur = m.id === modeId && lvl === level;
+            if (!b) return h("td", { class: isCur ? "cur" : null }, h("span", { class: "muted" }, "—"));
+            const total = b.correct + b.wrong + b.skipped;
+            // спринти (фіксований час) → влучність; n20/free → час
+            const sub = m.seconds ? (total ? Math.round(b.correct / total * 100) + "%" : "—") : App.ui.fmtClock(b.seconds);
+            return h("td", { class: isCur ? "cur" : null },
+              h("div", { class: "mrec" }, String(b.correct)),
+              h("div", { class: "msub" }, sub));
+          }));
+      });
+      return h("div", { class: "table-scroll" }, h("table", { class: "results arith-matrix" }, head, body));
+    }
 
     function renderRecords() {
       recordsBox.innerHTML = "";
       const recs = App.store.records("arithmetic");
-      const sprint = recs.filter(function (r) { return r.mode === "s60" && r.level === level; });
-      recordsBox.append(h("div", { class: "card" },
-        h("h2", null, "Прогрес: спринт 60 с, рівень " + level),
-        App.ui.sparkline(sprint.slice(-25).map(function (r) { return r.correct; }), { w: 420, h: 60 }),
+      const matrixCard = h("div", { class: "card fade-in" },
+        h("h2", null, "🏆 Рекорди за рівнями й режимами"),
+        h("div", { class: "tiny muted", style: "margin:-4px 0 12px" },
+          "Велике число — найбільше ✓ правильних для пари рівень × режим; знизу — влучність (спринти) або час (20 прикладів / без ліміту). Операції об'єднані; поточний вибір підсвічено."),
+        renderMatrix());
+      const cur = recs.filter(function (r) { return r.mode === modeId && r.level === level; });
+      const progressCard = h("div", { class: "card", style: "margin-top:16px" },
+        h("h2", null, "Прогрес: " + modeDef().label + ", рівень " + level),
+        App.ui.sparkline(cur.slice(-25).map(function (r) { return r.correct; }), { w: 420, h: 60, color: "#8ed44a" }),
         recs.length ? h("table", { class: "results", style: "margin-top:12px" },
           h("tr", null, h("th", null, "Режим"), h("th", null, "Рів."), h("th", null, "✓"), h("th", null, "✗"), h("th", null, "Час"), h("th", null, "Дата")),
           recs.slice(-8).reverse().map(function (r) {
@@ -277,7 +314,8 @@ App.modules.arithmetic = (function () {
               h("td", null, String(r.wrong)),
               h("td", null, App.ui.fmtClock(r.seconds)),
               h("td", null, App.ui.fmtDate(r.date)));
-          })) : h("div", { class: "muted small", style: "margin-top:10px" }, "Зіграй перший спринт!")));
+          })) : h("div", { class: "muted small", style: "margin-top:10px" }, "Зіграй перший спринт!"));
+      recordsBox.append(matrixCard, progressCard);
     }
 
     root.append(

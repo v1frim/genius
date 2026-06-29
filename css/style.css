@@ -618,6 +618,11 @@ table.results tr:last-child td { border-bottom: none; }
   -moz-appearance: textfield;
 }
 .arith-input::-webkit-outer-spin-button, .arith-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.table-scroll { overflow-x: auto; }
+table.arith-matrix th, table.arith-matrix td { text-align: center; white-space: nowrap; }
+table.arith-matrix td.cur { background: rgba(142, 212, 74, 0.16); }
+table.arith-matrix .mrec { font-weight: 900; color: var(--accent); font-size: 1.05rem; }
+table.arith-matrix .msub { font-size: 0.72rem; color: var(--muted); }
 .flash-ok { animation: flash-green 0.35s; }
 .flash-bad { animation: flash-red 0.4s; }
 @keyframes flash-green { 0% { background: rgba(139, 195, 74, 0.35); } 100% { background: transparent; } }
