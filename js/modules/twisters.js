@@ -55,6 +55,17 @@ App.modules.twisters = (function () {
     }
     document.addEventListener("visibilitychange", onVisibility);
 
+    // Клавіатура: Enter → «Прочитав ×5», Space → «Пропустити».
+    // preventDefault гасить і прокрутку, і нативну активацію кнопки у фокусі (без подвійного спрацювання).
+    function onKey(e) {
+      const t = e.target;
+      const tag = (t && t.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || (t && t.isContentEditable)) return;
+      if (e.key === "Enter") { e.preventDefault(); countIt(); }
+      else if (e.code === "Space" || e.key === " ") { e.preventDefault(); next(); }
+    }
+    document.addEventListener("keydown", onKey);
+
     const display = h("div", { class: "twister-card fade-in" });
     const counterEl = h("div", { class: "muted", style: "font-weight:800" });
     const diffEl = h("div", { class: "diff-dots yellow", style: "font-weight:900" });
@@ -163,7 +174,10 @@ App.modules.twisters = (function () {
     rebuildOrder();
     next();
 
-    return function cleanup() { document.removeEventListener("visibilitychange", onVisibility); };
+    return function cleanup() {
+      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("keydown", onKey);
+    };
   }
 
   return { id: "twisters", title: "Скоромовки", icon: "👄", render: render };
