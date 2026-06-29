@@ -35,6 +35,8 @@ App.store = (function () {
       twisterTotal: 0,
       twisterByDay: {},     // {'YYYY-MM-DD': count}
       chess: { byDay: {} }, // {'YYYY-MM-DD': {trainer, players, puzzles}} — облік партій/тренажерів
+      medVideos: [],        // добірка відео для медитації [{id,title,url,min,plays,last,fav,prog}]
+      medVideosInit: false, // прапор одноразового сидіння стартової добірки відео
       timeByDay: {},        // {'YYYY-MM-DD': {schulte: ms, reading: ms, ...}} — час у розділах
       prefs: {},            // налаштування модулів (wpm, рівень тощо)
     };
