@@ -267,12 +267,6 @@ App.modules.dashboard = (function () {
           h("div", { class: "q-sub" }, it.sub)));
       });
       root.append(h("h2", { style: "margin:6px 0 12px" }, "Тренажери"), quick);
-
-      root.append(h("div", { class: "card fade-in", style: "margin-top:18px" },
-        h("h2", null, "Зовнішні інструменти"),
-        h("div", { class: "row", style: "gap:18px" },
-          h("a", { class: "ext", href: "https://www.chess.com/lessons", target: "_blank", rel: "noopener" }, "♟️ Шахи: уроки на chess.com"),
-          h("a", { class: "ext", href: "https://www.youtube.com/@charismaoncommand_ru", target: "_blank", rel: "noopener" }, "🎭 Харизма: Charisma on Command"))));
     }
 
     build();

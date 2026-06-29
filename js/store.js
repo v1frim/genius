@@ -34,6 +34,7 @@ App.store = (function () {
       goals: null,          // заповнюється з App.data.defaultGoals
       twisterTotal: 0,
       twisterByDay: {},     // {'YYYY-MM-DD': count}
+      chess: { byDay: {} }, // {'YYYY-MM-DD': {trainer, players, puzzles}} — облік партій/тренажерів
       timeByDay: {},        // {'YYYY-MM-DD': {schulte: ms, reading: ms, ...}} — час у розділах
       prefs: {},            // налаштування модулів (wpm, рівень тощо)
     };

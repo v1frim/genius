@@ -217,6 +217,7 @@ App.sync = (function () {
     merged.timeByDay = mergeByDayCat(local.timeByDay, cloud.timeByDay);
     merged.twisterByDay = mergeByDayNum(local.twisterByDay, cloud.twisterByDay);
     merged.twisterTotal = Math.max(local.twisterTotal || 0, cloud.twisterTotal || 0);
+    merged.chess = { byDay: mergeByDayCat((local.chess || {}).byDay, (cloud.chess || {}).byDay) };
     return merged;
   }
 
