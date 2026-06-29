@@ -16,9 +16,9 @@ App.modules.charisma = (function () {
      канал → Ctrl+U → знайди "externalId" → скопіюй значення виду UC… (24 символи).
      Якщо лишити "" — channelId резолвиться з @handle і кешується (запасний шлях). */
   const CHANNELS = [
-    { handle: "charismaoncommand_ru", name: "Charisma on Command", channelId: "" },
-    { handle: "panfer",              name: "Panfer",              channelId: "" },
-    { handle: "marnikinrys-ru",      name: "Marnikinrys",         channelId: "" },
+    { handle: "charismaoncommand_ru", name: "Charisma on Command", channelId: "UCnXppDx0xzfKqOafJunzcEw" },
+    { handle: "panfer",              name: "Panfer",              channelId: "UCemysYibKkDKjeb5k12qqeg" },
+    { handle: "marnikinrys-ru",      name: "Marnikinrys",         channelId: "UCecY3ADdRiqY6FORPXZ5OVQ" },
   ];
 
   const LS_IDS = "genius.charisma.ids";        // { handle: "UC..." } — назавжди
