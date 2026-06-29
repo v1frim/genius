@@ -275,15 +275,20 @@ App.modules.reading = (function () {
       }, l.label));
     });
 
+    const RSVP_SOURCES = [
+      { id: "prose", label: "📖 Художні", title: "Уривки художньої прози — стрічка з кількох коротких уривків" },
+      { id: "passages", label: "📚 Зв'язні", title: "Цілісні зв'язні тексти — один текст на раунд" },
+      { id: "wiki", label: "🎲 Вікіпедія", title: "Випадкові статті Вікіпедії — більше фактів, імен і дат" },
+    ];
     const srcChips = h("div", { class: "row" });
-    [{ id: "prose", label: "📖 Художні" }, { id: "wiki", label: "🎲 Вікіпедія" }].forEach(function (s) {
+    RSVP_SOURCES.forEach(function (s) {
       srcChips.append(h("button", {
         class: "chip" + (s.id === src ? " active" : ""),
-        title: s.id === "prose" ? "Уривки художньої прози — плавний текст без імен і дат" : "Випадкові статті Вікіпедії — більше фактів, імен і дат",
+        title: s.title,
         onclick: function () {
           src = s.id; App.store.setPref("rsvp.src", src);
           Array.prototype.forEach.call(srcChips.children, function (el, i) {
-            el.classList.toggle("active", (i === 0 ? "prose" : "wiki") === src);
+            el.classList.toggle("active", RSVP_SOURCES[i].id === src);
           });
         },
       }, s.label));
@@ -388,6 +393,7 @@ App.modules.reading = (function () {
       quizBox.innerHTML = "";
       wikiInfo.style.display = "none";
       if (src === "wiki") startWiki();
+      else if (src === "passages") startPassages();
       else startProse();
     }
 
@@ -404,6 +410,28 @@ App.modules.reading = (function () {
       }
       const distract = pool.slice(i, i + 5); // невикористані уривки — на дистрактори для питань
       lastRead = { titles: [], text: parts.join(" "), distractorTitles: [], distractorText: distract.join(" ") };
+      beginRun(lastRead.text);
+    }
+
+    /* зв'язні тексти: один цілий текст на раунд (під обрану довжину; квіз — на ньому) */
+    function startPassages() {
+      const pool = App.data.passages || [];
+      if (!pool.length) { App.ui.toast("Немає зв'язних текстів", "info"); return startProse(); }
+      const def = lenDef();
+      const withW = pool.map(function (p) { return { p: p, w: p.text.split(/\s+/).length }; });
+      let cand;
+      if (def.id === "s") cand = withW.filter(function (x) { return x.w <= 95; });
+      else if (def.id === "m") cand = withW.filter(function (x) { return x.w > 95 && x.w <= 140; });
+      else cand = withW.filter(function (x) { return x.w > 140; });
+      if (!cand.length) cand = withW;
+      const chosen = App.ui.rnd(cand).p;
+      const others = App.ui.shuffle(pool.filter(function (p) { return p !== chosen; })).slice(0, 3);
+      lastRead = {
+        titles: chosen.theme ? [chosen.theme] : [],
+        text: chosen.text,
+        distractorTitles: [],
+        distractorText: others.map(function (p) { return p.text; }).join(" "),
+      };
       beginRun(lastRead.text);
     }
 

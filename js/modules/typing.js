@@ -7,6 +7,7 @@ App.modules.typing = (function () {
 
   const SOURCES = [
     { id: "ua", label: "🇺🇦 Українські речення" },
+    { id: "passages", label: "📚 Зв'язні тексти" },
     { id: "twist", label: "👄 Скоромовки" },
     { id: "en", label: "🇬🇧 English" },
     { id: "custom", label: "✍️ Свій текст" },
@@ -21,6 +22,17 @@ App.modules.typing = (function () {
   function buildText(sourceId, targetChars, customText) {
     if (sourceId === "custom") {
       return customText.trim().replace(/\s+/g, " ");
+    }
+    if (sourceId === "passages") {
+      const pool = App.data.passages || [];
+      if (!pool.length) return "";
+      const withW = pool.map(function (p) { return { text: p.text, w: p.text.split(/\s+/).length }; });
+      let cand;
+      if (targetChars <= 130) cand = withW.filter(function (x) { return x.w <= 95; });
+      else if (targetChars <= 300) cand = withW.filter(function (x) { return x.w > 95 && x.w <= 140; });
+      else cand = withW.filter(function (x) { return x.w > 140; });
+      if (!cand.length) cand = withW;
+      return App.ui.rnd(cand).text; // один цілий зв'язний текст
     }
     let bank;
     if (sourceId === "ua") bank = App.data.typingUA;
