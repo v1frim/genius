@@ -816,3 +816,4 @@ a.yt-title:hover { text-decoration: underline; }
 .yt-ago.y { background: rgba(255, 210, 74, 0.18); color: var(--yellow); }
 .yt-ago.o { background: rgba(255, 150, 60, 0.2); color: #ffae5c; }
 .yt-ago.r { background: rgba(255, 100, 112, 0.2); color: var(--danger); }
+.yt-stale { font-size: 0.66rem; font-weight: 800; padding: 3px 8px; border-radius: 999px; background: rgba(255, 150, 60, 0.18); color: #ffae5c; white-space: nowrap; }

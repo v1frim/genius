@@ -11,8 +11,10 @@ App.modules = App.modules || {};
 App.modules.charisma = (function () {
   const h = function () { return App.ui.h.apply(null, arguments); };
 
-  /* channelId лиши порожнім — резолвиться й кешується автоматично.
-     Коли з'ясуєш UC... — впиши сюди, тоді резолв не знадобиться. */
+  /* НАДІЙНІСТЬ: захардкодь channelId (UC…) — тоді найкрихкіший крок (парсинг HTML
+     сторінки каналу) пропускається й одразу береться RSS. Як дістати вручну: відкрий
+     канал → Ctrl+U → знайди "externalId" → скопіюй значення виду UC… (24 символи).
+     Якщо лишити "" — channelId резолвиться з @handle і кешується (запасний шлях). */
   const CHANNELS = [
     { handle: "charismaoncommand_ru", name: "Charisma on Command", channelId: "" },
     { handle: "panfer",              name: "Panfer",              channelId: "" },
@@ -22,11 +24,15 @@ App.modules.charisma = (function () {
   const LS_IDS = "genius.charisma.ids";        // { handle: "UC..." } — назавжди
   const LS_VID = "genius.charisma.videos";     // { handle: {title,url,published,fetchedAt} }
   const TTL = 30 * 60 * 1000;                  // свіжість кешу відео — 30 хв
-  const TIMEOUT = 10000;                       // таймаут одного запиту
+  const TIMEOUT = 12000;                       // таймаут одного запиту
+  const ATTEMPTS = 3;                          // спроб на канал
+  const BETWEEN = 400;                         // пауза між каналами (менше rate-limit)
 
+  // проксі по черзі: якщо впав — наступний
   const PROXIES = [
     function (url) { return "https://corsproxy.io/?" + encodeURIComponent(url); },
     function (url) { return "https://api.allorigins.win/raw?url=" + encodeURIComponent(url); },
+    function (url) { return "https://thingproxy.freeboard.io/fetch/" + url; },
   ];
 
   /* ---------- localStorage (окремо від синхронізованого genius.v1) ---------- */
@@ -93,6 +99,7 @@ App.modules.charisma = (function () {
     }
 
     const right = h("div", { class: "yt-right" },
+      data.stale ? h("span", { class: "yt-stale", title: "Показано збережене відео — оновити не вдалося" }, "не вдалося оновити") : null,
       isNew ? h("span", { class: "yt-new" }, "NEW") : null,
       badge);
 
@@ -144,6 +151,7 @@ App.modules.charisma = (function () {
       const html = await proxyFetch("https://www.youtube.com/@" + ch.handle);
       const m = html.match(/"externalId":"(UC[\w-]{22})"/) ||
                 html.match(/"channelId":"(UC[\w-]{22})"/) ||
+                html.match(/videos\.xml\?channel_id=(UC[\w-]{22})/) ||
                 html.match(/channel\/(UC[\w-]{22})/);
       if (!m) throw new Error("channelId не знайдено");
       saveId(ch.handle, m[1]);
@@ -165,10 +173,10 @@ App.modules.charisma = (function () {
       return { title: title, url: url, published: published };
     }
 
-    // до 2 спроб із паузою ~800мс (кожна спроба сама перебирає 2 проксі)
+    // кілька спроб із паузою ~800мс (кожна спроба сама перебирає всі проксі по черзі)
     async function fetchWithRetry(ch) {
       let lastErr;
-      for (let attempt = 0; attempt < 2; attempt++) {
+      for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
         if (state.cancelled) throw new Error("cancelled");
         if (attempt) await sleep(800);
         try { return await fetchLatest(ch); }
@@ -210,10 +218,11 @@ App.modules.charisma = (function () {
             setRow(ch, { video: v });
           } catch (e) {
             if (state.cancelled) return;
-            // лишаємо старий кеш, якщо був; інакше — помилка для цього каналу
-            setRow(ch, cache ? { video: cache } : { error: true });
+            // є кеш — показуємо збережене відео з позначкою «не вдалося оновити»;
+            // немає кешу — лише тоді помилка для цього каналу
+            setRow(ch, cache ? { video: cache, stale: true } : { error: true });
           }
-          await sleep(200);                      // пауза між каналами
+          await sleep(BETWEEN);                   // пауза між каналами
         }
       } finally {
         if (!state.cancelled) refreshBtn.disabled = false;
