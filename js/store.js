@@ -37,6 +37,7 @@ App.store = (function () {
       chess: { byDay: {} }, // {'YYYY-MM-DD': {trainer, players, puzzles}} — облік партій/тренажерів
       medVideos: [],        // добірка відео для медитації [{id,title,url,min,plays,last,fav,prog}]
       medVideosInit: false, // прапор одноразового сидіння стартової добірки відео
+      medVideoMetaV: 0,     // версія застосованих назв/тривалостей відео (міграція в meditation.js)
       timeByDay: {},        // {'YYYY-MM-DD': {schulte: ms, reading: ms, ...}} — час у розділах
       prefs: {},            // налаштування модулів (wpm, рівень тощо)
     };

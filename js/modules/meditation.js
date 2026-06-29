@@ -33,6 +33,21 @@ App.modules.meditation = (function () {
     }
     if (!Array.isArray(st.medVideos)) st.medVideos = [];
 
+    /* Одноразово (за версією) вписати реальні назви/тривалості з defaultMedVideos у наявні відео,
+       НЕ чіпаючи ті, що користувач уже перейменував або яким задав тривалість. */
+    const MED_META_V = 1; // бампати, коли додаємо реальні дані для ще якихось відео
+    if (st.medVideoMetaV !== MED_META_V) {
+      (App.data.defaultMedVideos || []).forEach(function (d) {
+        if (!(d.min > 0 || !/^Медитація \d+$/.test(d.title || ""))) return; // лише ті, де є реальні дані
+        const v = st.medVideos.find(function (x) { return x.id === d.id; });
+        if (!v) return;
+        if (/^(Медитація|Відео) \d+$/.test(v.title || "")) v.title = d.title; // лише незаймані плейсхолдери
+        if (!v.min) v.min = d.min;
+      });
+      st.medVideoMetaV = MED_META_V;
+      App.store.save();
+    }
+
     /* --- пейсер --- */
     let pacerRunning = false;
     let phaseIdx = 0;

@@ -245,10 +245,10 @@ App.data.typingEN = [
 /* Канал @alexanderbaranovsky (externalId UCewkqzMpCq6oiHWxV8kDiMA).
    title/min користувач уточнює в UI; min=0 — поки не задано. Сідається одноразово (прапор medVideosInit). */
 App.data.defaultMedVideos = [
-  { id: "J5ADErtnbJU", title: "Медитація 1", url: "https://www.youtube.com/watch?v=J5ADErtnbJU&t=558s", min: 0, plays: 0, last: null, fav: false, prog: 0 },
-  { id: "BGKlr7mQXHQ", title: "Медитація 2", url: "https://www.youtube.com/watch?v=BGKlr7mQXHQ", min: 0, plays: 0, last: null, fav: false, prog: 0 },
-  { id: "uSeBERteJWo", title: "Медитація 3", url: "https://www.youtube.com/watch?v=uSeBERteJWo&t=1419s", min: 0, plays: 0, last: null, fav: false, prog: 0 },
-  { id: "a6u64zBf7UY", title: "Медитація 4", url: "https://www.youtube.com/watch?v=a6u64zBf7UY&t=346s", min: 0, plays: 0, last: null, fav: false, prog: 0 },
+  { id: "J5ADErtnbJU", title: "Медитация осознанности — Здесь и сейчас", url: "https://www.youtube.com/watch?v=J5ADErtnbJU&t=558s", min: 23, plays: 0, last: null, fav: false, prog: 0 },
+  { id: "BGKlr7mQXHQ", title: "Практика осознанности — Mindfulness медитация", url: "https://www.youtube.com/watch?v=BGKlr7mQXHQ", min: 17, plays: 0, last: null, fav: false, prog: 0 },
+  { id: "uSeBERteJWo", title: "Исцеление себя — медитация самопомощи", url: "https://www.youtube.com/watch?v=uSeBERteJWo&t=1419s", min: 26, plays: 0, last: null, fav: false, prog: 0 },
+  { id: "a6u64zBf7UY", title: "Осознанность — Здесь и сейчас", url: "https://www.youtube.com/watch?v=a6u64zBf7UY&t=346s", min: 27, plays: 0, last: null, fav: false, prog: 0 },
   { id: "bjhUJJWvlqM", title: "Медитація 5", url: "https://www.youtube.com/watch?v=bjhUJJWvlqM&t=1036s", min: 0, plays: 0, last: null, fav: false, prog: 0 },
   { id: "YMJodW3ArC8", title: "Медитація 6", url: "https://www.youtube.com/watch?v=YMJodW3ArC8", min: 0, plays: 0, last: null, fav: false, prog: 0 },
   { id: "_16rU5mqLcM", title: "Медитація 7", url: "https://www.youtube.com/watch?v=_16rU5mqLcM", min: 0, plays: 0, last: null, fav: false, prog: 0 },
