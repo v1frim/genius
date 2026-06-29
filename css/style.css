@@ -847,3 +847,5 @@ a.yt-title:hover { text-decoration: underline; }
 .med-vid-ctrl { display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
 .linklike { background: none; border: none; color: var(--primary); cursor: pointer; font: inherit; padding: 0; }
 .linklike:hover { text-decoration: underline; }
+.med-vid.med-edit { background: rgba(255, 255, 255, 0.03); border-radius: 8px; }
+.med-vid.med-edit input[type="text"], .med-vid.med-edit input[type="number"] { padding: 6px 8px; }

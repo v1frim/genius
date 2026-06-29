@@ -179,8 +179,8 @@ App.modules.meditation = (function () {
 
     /* --- бібліотека відео для медитації --- */
     const videoBox = h("div");
-    let formShown = false;
-    let editing = null;
+    let editing = null;   // відео, яке зараз редагуємо інлайн (на місці рядка)
+    let addShown = false; // чи показана форма додавання внизу
 
     function openUrl(url) {
       const a = h("a", { href: url, target: "_blank", rel: "noopener" });
@@ -197,7 +197,7 @@ App.modules.meditation = (function () {
       v.plays = (v.plays || 0) + 1;
       v.last = App.store.todayStr();
       let completed = false;
-      if (v.min) { // прогрес проходження має сенс лише коли задано тривалість відео
+      if (v.min > LONG_MIN) { // прогрес проходження — лише для довгих відео (їх слухаємо частинами)
         v.prog = (v.prog || 0) + minutes;
         if (v.prog >= v.min) { v.prog = 0; completed = true; } // пройдено повний прохід
       }
@@ -208,32 +208,63 @@ App.modules.meditation = (function () {
       renderVideos();
     }
 
-    function saveForm(url, title, minutes) {
+    /* зберегти редагування (v) або нове відео (v=null) */
+    function commit(v, url, title, minutes) {
       url = (url || "").trim(); title = (title || "").trim();
       const min = Math.max(0, parseInt(minutes, 10) || 0);
       if (!url) { App.ui.toast("Встав посилання на відео", "info"); return; }
-      const id = parseVidId(url) || url;
-      if (editing) {
-        editing.url = url; editing.min = min; if (title) editing.title = title;
+      if (v) {
+        v.url = url; v.min = min; if (title) v.title = title;
+        editing = null;
       } else {
-        if (st.medVideos.some(function (v) { return v.id === id; })) { App.ui.toast("Таке відео вже є у списку", "info"); return; }
+        const id = parseVidId(url) || url;
+        if (st.medVideos.some(function (x) { return x.id === id; })) { App.ui.toast("Таке відео вже є у списку", "info"); return; }
         st.medVideos.push({ id: id, title: title || ("Відео " + (st.medVideos.length + 1)), url: url, min: min, plays: 0, last: null, fav: false, prog: 0 });
+        addShown = false;
       }
-      formShown = false; editing = null;
       App.store.save(); renderVideos();
     }
 
+    /* інлайн-форма редагування — рендериться на місці рядка */
+    function editForm(v) {
+      const titleIn = h("input", { type: "text", value: v.title || "", placeholder: "Назва", style: "flex:2 1 200px" });
+      const minIn = h("input", { type: "number", min: 0, max: 600, placeholder: "хв", style: "width:74px;text-align:center" });
+      if (v.min) minIn.value = v.min;
+      const urlIn = h("input", { type: "text", value: v.url || "", placeholder: "Посилання YouTube", style: "flex:1 1 100%;min-width:180px" });
+      return h("div", { class: "med-vid med-edit" },
+        h("div", { class: "med-vid-main" },
+          h("div", { class: "tiny muted", style: "margin-bottom:6px" }, "✏️ Назва, тривалість (хв) і, за потреби, посилання:"),
+          h("div", { class: "row", style: "gap:8px;flex-wrap:wrap" }, titleIn, minIn, urlIn,
+            h("button", { class: "btn green small", onclick: function () { commit(v, urlIn.value, titleIn.value, minIn.value); } }, "Зберегти"),
+            h("button", { class: "btn ghost small", onclick: function () { editing = null; renderVideos(); } }, "Скасувати"))));
+    }
+
     function videoRow(v) {
-      const logIn = h("input", { type: "number", min: 1, max: 600, placeholder: "хв", style: "width:62px;text-align:center" });
-      if (v.min) logIn.value = v.min;
+      if (editing === v) return editForm(v); // інлайн-редагування на місці рядка
       const favBtn = h("button", {
         class: "med-fav" + (v.fav ? " on" : ""), title: v.fav ? "Прибрати з улюблених" : "В улюблені",
         onclick: function () { v.fav = !v.fav; App.store.save(); renderVideos(); },
       }, v.fav ? "★" : "☆");
       const meta = h("div", { class: "tiny muted", style: "margin-top:2px" },
         (v.min ? v.min + " хв · " : "") + "прослухано " + (v.plays || 0) + (v.last ? " · востаннє " + App.ui.fmtDate(v.last) : ""));
+
+      // керування залежить від тривалості: коротке (≤30) — один тап на повну; довге (>30) — вводиш частину
+      let ctrl;
+      if (!v.min) {
+        const logIn = h("input", { type: "number", min: 1, max: 600, placeholder: "хв", style: "width:62px;text-align:center" });
+        ctrl = [logIn, h("button", { class: "btn green small", title: "Задай тривалість через ✏️ або введи хвилини",
+          onclick: function () { const m = parseInt(logIn.value, 10); if (!m || m < 1) { App.ui.toast("Задай тривалість (✏️) або введи хвилини", "info"); return; } playLog(v, m); } }, "▶ +хв")];
+      } else if (v.min <= LONG_MIN) {
+        ctrl = [h("button", { class: "btn green small", title: "Відкрити й зарахувати " + v.min + " хв",
+          onclick: function () { playLog(v, v.min); } }, "▶ +" + v.min + " хв")];
+      } else {
+        const logIn = h("input", { type: "number", min: 1, max: 600, placeholder: "хв за раз", style: "width:84px;text-align:center" });
+        ctrl = [logIn, h("button", { class: "btn green small", title: "Зарахувати прослухану частину",
+          onclick: function () { const m = parseInt(logIn.value, 10); if (!m || m < 1) { App.ui.toast("Постав, скільки прослухав", "info"); return; } playLog(v, m); } }, "▶ +хв")];
+      }
+
       let progEl = null;
-      if (v.min >= LONG_MIN) {
+      if (v.min > LONG_MIN) {
         const pct = Math.min(100, (v.prog || 0) / v.min * 100);
         progEl = h("div", { style: "margin-top:6px;max-width:340px" },
           App.ui.progressBar(pct, true),
@@ -241,21 +272,14 @@ App.modules.meditation = (function () {
             "прогрес проходження: " + (v.prog || 0) + " / " + v.min + " хв",
             v.prog ? h("button", { class: "linklike", onclick: function () { v.prog = 0; App.store.save(); renderVideos(); } }, " · ↺ скинути") : null));
       }
-      const playBtn = h("button", {
-        class: "btn green small", title: "Відкрити відео й зарахувати хвилини",
-        onclick: function () {
-          const m = parseInt(logIn.value, 10);
-          if (!m || m < 1) { App.ui.toast("Постав хвилини", "info"); return; }
-          playLog(v, m);
-        },
-      }, "▶ +хв");
+
       return h("div", { class: "med-vid" + (v.fav ? " fav" : "") },
         favBtn,
         h("div", { class: "med-vid-main" },
           h("a", { class: "med-vid-title", href: v.url, target: "_blank", rel: "noopener" }, v.title || "(без назви)"),
           meta, progEl),
-        h("div", { class: "med-vid-ctrl" }, logIn, playBtn,
-          h("button", { class: "btn-mini", title: "Редагувати", onclick: function () { editing = v; formShown = true; renderVideos(); } }, "✏"),
+        h("div", { class: "med-vid-ctrl" }, ctrl,
+          h("button", { class: "btn-mini", title: "Редагувати назву й час", onclick: function () { editing = v; addShown = false; renderVideos(); } }, "✏️"),
           h("button", {
             class: "btn-mini", title: "Видалити зі списку",
             onclick: function () {
@@ -275,18 +299,17 @@ App.modules.meditation = (function () {
       if (!sorted.length) list.append(h("div", { class: "muted small", style: "padding:8px 0" }, "Список порожній — додай відео нижче."));
       sorted.forEach(function (v) { list.append(videoRow(v)); });
 
-      let formEl;
-      if (!formShown) {
-        formEl = h("button", { class: "btn ghost small", style: "margin-top:12px", onclick: function () { editing = null; formShown = true; renderVideos(); } }, "➕ Додати відео");
-      } else {
+      let bottom;
+      if (addShown) {
         const urlIn = h("input", { type: "text", placeholder: "Посилання YouTube", style: "flex:2 1 180px" });
         const titleIn = h("input", { type: "text", placeholder: "Назва", style: "flex:1 1 120px" });
         const minIn = h("input", { type: "number", min: 0, max: 600, placeholder: "хв", style: "width:66px" });
-        if (editing) { urlIn.value = editing.url; titleIn.value = editing.title; if (editing.min) minIn.value = editing.min; }
-        formEl = h("div", { class: "card inner", style: "margin-top:12px" },
+        bottom = h("div", { class: "card inner", style: "margin-top:12px" },
           h("div", { class: "row", style: "gap:8px;flex-wrap:wrap" }, urlIn, titleIn, minIn,
-            h("button", { class: "btn green small", onclick: function () { saveForm(urlIn.value, titleIn.value, minIn.value); } }, editing ? "Зберегти" : "Додати"),
-            h("button", { class: "btn ghost small", onclick: function () { formShown = false; editing = null; renderVideos(); } }, "Скасувати")));
+            h("button", { class: "btn green small", onclick: function () { commit(null, urlIn.value, titleIn.value, minIn.value); } }, "Додати"),
+            h("button", { class: "btn ghost small", onclick: function () { addShown = false; renderVideos(); } }, "Скасувати")));
+      } else {
+        bottom = h("button", { class: "btn ghost small", style: "margin-top:12px", onclick: function () { addShown = true; editing = null; renderVideos(); } }, "➕ Додати відео");
       }
 
       videoBox.append(h("div", { class: "card fade-in" },
@@ -296,8 +319,8 @@ App.modules.meditation = (function () {
             h("a", { class: "btn ghost small", href: CHANNEL_URL, target: "_blank", rel: "noopener" }, "📺 Канал"),
             h("a", { class: "btn ghost small", href: SEARCH_URL, target: "_blank", rel: "noopener" }, "🔎 Ще"))),
         h("div", { class: "tiny muted", style: "margin-bottom:10px" },
-          "Коротке відео — постав тривалість і тисни «▶ +хв» (зарахується як сесія). Довге слухаєш частинами: щоразу став, скільки прослухав — кожна частина йде в журнал, а прогрес проходження накопичується."),
-        list, formEl));
+          "До 30 хв — тисни «▶ +хв», зарахується повна тривалість одним тапом. Довші за 30 хв слухаєш частинами: вводиш, скільки прослухав цього разу — кожна частина йде в журнал, а прогрес проходження накопичується. Назву й час постав через ✏️."),
+        list, bottom));
     }
 
     /* --- статистика та журнал --- */
