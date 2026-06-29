@@ -35,7 +35,7 @@ App.modules.meditation = (function () {
 
     /* Одноразово (за версією) вписати реальні назви/тривалості з defaultMedVideos у наявні відео,
        НЕ чіпаючи ті, що користувач уже перейменував або яким задав тривалість. */
-    const MED_META_V = 1; // бампати, коли додаємо реальні дані для ще якихось відео
+    const MED_META_V = 2; // бампати, коли додаємо реальні дані для ще якихось відео
     if (st.medVideoMetaV !== MED_META_V) {
       (App.data.defaultMedVideos || []).forEach(function (d) {
         if (!(d.min > 0 || !/^Медитація \d+$/.test(d.title || ""))) return; // лише ті, де є реальні дані

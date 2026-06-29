@@ -249,10 +249,10 @@ App.data.defaultMedVideos = [
   { id: "BGKlr7mQXHQ", title: "Практика осознанности — Mindfulness медитация", url: "https://www.youtube.com/watch?v=BGKlr7mQXHQ", min: 17, plays: 0, last: null, fav: false, prog: 0 },
   { id: "uSeBERteJWo", title: "Исцеление себя — медитация самопомощи", url: "https://www.youtube.com/watch?v=uSeBERteJWo&t=1419s", min: 26, plays: 0, last: null, fav: false, prog: 0 },
   { id: "a6u64zBf7UY", title: "Осознанность — Здесь и сейчас", url: "https://www.youtube.com/watch?v=a6u64zBf7UY&t=346s", min: 27, plays: 0, last: null, fav: false, prog: 0 },
-  { id: "bjhUJJWvlqM", title: "Медитація 5", url: "https://www.youtube.com/watch?v=bjhUJJWvlqM&t=1036s", min: 0, plays: 0, last: null, fav: false, prog: 0 },
-  { id: "YMJodW3ArC8", title: "Медитація 6", url: "https://www.youtube.com/watch?v=YMJodW3ArC8", min: 0, plays: 0, last: null, fav: false, prog: 0 },
-  { id: "_16rU5mqLcM", title: "Медитація 7", url: "https://www.youtube.com/watch?v=_16rU5mqLcM", min: 0, plays: 0, last: null, fav: false, prog: 0 },
-  { id: "u_d23K_-v1Q", title: "Медитація 8", url: "https://www.youtube.com/watch?v=u_d23K_-v1Q&t=1696s", min: 0, plays: 0, last: null, fav: false, prog: 0 },
+  { id: "bjhUJJWvlqM", title: "Очищение от тревожности — медитация", url: "https://www.youtube.com/watch?v=bjhUJJWvlqM&t=1036s", min: 20, plays: 0, last: null, fav: false, prog: 0 },
+  { id: "YMJodW3ArC8", title: "Альфа-медитация для глубокого расслабления и сна", url: "https://www.youtube.com/watch?v=YMJodW3ArC8", min: 21, plays: 0, last: null, fav: false, prog: 0 },
+  { id: "_16rU5mqLcM", title: "Медитация для снятия стресса — полное расслабление", url: "https://www.youtube.com/watch?v=_16rU5mqLcM", min: 20, plays: 0, last: null, fav: false, prog: 0 },
+  { id: "u_d23K_-v1Q", title: "Max Richter — On the Nature of Daylight (1 час)", url: "https://www.youtube.com/watch?v=u_d23K_-v1Q&t=1696s", min: 62, plays: 0, last: null, fav: false, prog: 0 },
 ];
 
 /* ---------- тексти для швидкочитання ---------- */
