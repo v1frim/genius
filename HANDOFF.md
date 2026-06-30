@@ -81,7 +81,7 @@ chess.com (home/play/puzzles/lessons).
   ✏️ — інлайн-редагування НА МІСЦІ рядка. Сортування: улюблені → за частотою. CSS `.med-vid`/`.med-fav`.
 
 ### 8. Зв'язні тексти — спільний корпус (`js/data.passages.js`)
-**58 цілісних зв'язних текстів** (з темами, 68–161 слів) — `App.data.passages`. Доливати
+**201 цілісний зв'язний текст** (з темами, 67–177 слів) — `App.data.passages`. Доливати
 батчами, як прозу (стеля — сотні). Джерело в ОБОХ тренажерах (НЕ «склейка», як «Художні»):
 - **Швидкочитання** (`reading.js`): джерело «📚 Зв'язні» (`RSVP_SOURCES`, `startPassages`) —
   раунд = ОДИН цілий текст під довжину (бін за словами ≤95 / 96–140 / >140), з авто-квізом.
@@ -195,7 +195,7 @@ js/data.js           — задачі/цілі за замовчуванням, 
                       typingUA(22)+typingEN(10), 5 текстів для тесту читання з питаннями
 js/data.prose.js     — корпус художніх уривків для RSVP (App.data.proseExcerpts, зараз 503)
 js/data.twisters.js  — колекція скоромовок (App.data.twisters, зараз 381; за зразком data.prose.js)
-js/data.passages.js  — зв'язні цілісні тексти (App.data.passages, зараз 58) для читання й друку
+js/data.passages.js  — зв'язні цілісні тексти (App.data.passages, зараз 201) для читання й друку
 js/modules/*.js      — кожен тренажер = модуль {id, title, icon, render(root) → cleanup()}
 js/app.js            — роутер (#/id), навігація, глобальні Space/Tab, App.primaryAction,
                       виклик dashboard.syncAutoTasks() після rollover; App.rerender (для синхро)
