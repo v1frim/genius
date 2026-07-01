@@ -39,6 +39,7 @@ App.store = (function () {
       medVideosInit: false, // прапор одноразового сидіння стартової добірки відео
       medVideoMetaV: 0,     // версія застосованих назв/тривалостей відео (міграція в meditation.js)
       notes: [],            // Записник: [{id, name, items:[{id,text,done}]}]
+      media: {},            // Медіа: {films,books,phrases,phraseSessions,init} (сід із App.data.defaultMedia)
       timeByDay: {},        // {'YYYY-MM-DD': {schulte: ms, reading: ms, ...}} — час у розділах
       prefs: {},            // налаштування модулів (wpm, рівень тощо)
     };

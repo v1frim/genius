@@ -860,3 +860,19 @@ a.yt-title:hover { text-decoration: underline; }
 .notes-item-text.done { text-decoration: line-through; color: var(--muted); }
 .notes-add { flex: 1 1 auto; min-width: 0; padding: 8px 10px; background: var(--panel2); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: var(--text); }
 .notes-add:focus { outline: none; border-color: var(--primary); }
+
+/* ---------- Медіа ---------- */
+.media-list { display: flex; flex-direction: column; }
+.media-item { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.media-title { flex: 1 1 auto; min-width: 0; background: transparent; border: none; color: var(--text); font-size: 0.95rem; padding: 6px 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.media-title:focus { outline: none; border-bottom-color: var(--primary); }
+.media-title.done { text-decoration: line-through; color: var(--muted); }
+span.media-title { border-bottom: none; padding: 6px 0; }
+.media-add { flex: 1 1 auto; min-width: 0; padding: 8px 10px; background: var(--panel2); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: var(--text); }
+.media-add:focus { outline: none; border-color: var(--primary); }
+.phrase-list { display: flex; flex-direction: column; gap: 6px; }
+.phrase-row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 10px; background: var(--panel2); border-radius: 8px; cursor: pointer; }
+.phrase-row input { margin-top: 3px; flex-shrink: 0; }
+.phrase-text { flex: 1; line-height: 1.4; }
+.phrase-text.done { color: var(--muted); text-decoration: line-through; }
+.phrase-manage { max-height: 360px; overflow-y: auto; margin-top: 4px; }

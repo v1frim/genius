@@ -15,6 +15,7 @@
     App.modules.chess,
     App.modules.goals,
     App.modules.notes,
+    App.modules.media,
     App.modules.settings,
   ];
 
