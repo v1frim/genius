@@ -12,6 +12,7 @@ App.modules.media = (function () {
     t.setDate(t.getDate() - ((t.getDay() + 6) % 7) + 3);
     return 1 + Math.round((t - new Date(t.getFullYear(), 0, 4)) / 604800000);
   }
+  function autogrow(ta) { ta.style.height = "auto"; ta.style.height = (ta.scrollHeight + 2) + "px"; }
   const MEDIA_META_V = 1; // бампати, коли додаємо нові дані (напр. роки) до стартової добірки
 
   function render(root) {
@@ -143,8 +144,8 @@ App.modules.media = (function () {
         const zarBtn = h("button", { class: "btn green", onclick: function () { completeSession(); } }, "✓ Зарахувати");
         session.phrases.forEach(function (p) {
           const cb = h("input", { type: "checkbox" }); cb.checked = session.checked.has(p.id);
-          const textIn = h("input", { class: "phrase-text-in" + (session.checked.has(p.id) ? " done" : ""), value: p.text || "" });
-          textIn.addEventListener("input", function () { p.text = textIn.value; }); // редагуємо корпус
+          const textIn = h("textarea", { class: "phrase-text-in" + (session.checked.has(p.id) ? " done" : ""), rows: 1 }, p.text || "");
+          textIn.addEventListener("input", function () { p.text = textIn.value; autogrow(textIn); }); // редагуємо корпус
           textIn.addEventListener("change", save);
           cb.addEventListener("change", function () { if (cb.checked) session.checked.add(p.id); else session.checked.delete(p.id); textIn.classList.toggle("done", cb.checked); zarBtn.disabled = session.checked.size < session.phrases.length; });
           rows.append(h("div", { class: "phrase-row" }, cb, textIn));
@@ -153,6 +154,7 @@ App.modules.media = (function () {
         practiceBox.append(rows,
           h("div", { class: "row center", style: "gap:12px;margin-top:14px" },
             h("button", { class: "btn ghost small", onclick: function () { session = null; renderSession(); } }, "Скасувати"), zarBtn));
+        Array.prototype.forEach.call(rows.querySelectorAll("textarea"), autogrow);
       }
       function startSession() {
         if (!m.phrases.length) { App.ui.toast("Немає фраз", "info"); return; }
@@ -177,14 +179,15 @@ App.modules.media = (function () {
         addIn.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); addPhrase(); } });
         const list = h("div", { class: "phrase-manage" });
         m.phrases.forEach(function (p) {
-          const textIn = h("input", { class: "media-title", style: "flex:1", value: p.text || "" });
-          textIn.addEventListener("input", function () { p.text = textIn.value; });
+          const textIn = h("textarea", { class: "phrase-text-in", rows: 1 }, p.text || "");
+          textIn.addEventListener("input", function () { p.text = textIn.value; autogrow(textIn); });
           textIn.addEventListener("change", save);
-          const row = h("div", { class: "media-item" }, textIn,
+          const row = h("div", { class: "media-item phrase-manage-row" }, textIn,
             h("button", { class: "btn-mini", title: "Видалити", onclick: function () { const i = m.phrases.indexOf(p); if (i >= 0) m.phrases.splice(i, 1); row.remove(); save(); } }, "✕"));
           list.append(row);
         });
         manageBox.append(h("div", { class: "row", style: "gap:8px;margin-bottom:8px" }, addIn, h("button", { class: "btn small", onclick: addPhrase }, "Додати")), list);
+        Array.prototype.forEach.call(list.querySelectorAll("textarea"), autogrow);
       }
 
       content.append(

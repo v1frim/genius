@@ -878,6 +878,7 @@ span.media-title { border-bottom: none; padding: 6px 0; }
 .phrase-manage { max-height: 360px; overflow-y: auto; margin-top: 4px; }
 .media-year { width: 68px; flex-shrink: 0; background: transparent; border: none; border-bottom: 1px solid rgba(255, 255, 255, 0.06); color: var(--muted); font-size: 0.9rem; padding: 6px 4px; text-align: center; }
 .media-year:focus { outline: none; border-bottom-color: var(--primary); color: var(--text); }
-.phrase-text-in { flex: 1; min-width: 0; background: transparent; border: none; color: var(--text); font-size: 0.95rem; line-height: 1.4; padding: 3px 4px; }
+.phrase-text-in { flex: 1; min-width: 0; width: 100%; background: transparent; border: none; color: var(--text); font-family: inherit; font-size: 0.95rem; line-height: 1.4; padding: 3px 4px; resize: none; overflow: hidden; }
 .phrase-text-in:focus { outline: none; }
 .phrase-text-in.done { color: var(--muted); text-decoration: line-through; }
+.phrase-manage-row { align-items: flex-start; }
