@@ -52,18 +52,14 @@ App.modules.media = (function () {
         const titleIn = h("input", { class: "media-title" + (f.watched ? " done" : ""), value: f.title || "" });
         titleIn.addEventListener("input", function () { f.title = titleIn.value; });
         titleIn.addEventListener("change", save);
-        const yearIn = h("input", { class: "media-year", type: "number", placeholder: "рік", value: f.year || "" });
-        yearIn.addEventListener("input", function () { f.year = parseInt(yearIn.value, 10) || undefined; });
-        yearIn.addEventListener("change", save);
         cb.addEventListener("change", function () { f.watched = cb.checked; titleIn.classList.toggle("done", f.watched); save(); });
-        const row = h("div", { class: "media-item" }, cb, titleIn, yearIn,
+        const row = h("div", { class: "media-item" }, cb, titleIn,
           h("button", { class: "btn-mini", title: "Видалити", onclick: function () { const i = m.films.indexOf(f); if (i >= 0) m.films.splice(i, 1); row.remove(); save(); } }, "✕"));
         return row;
       }
       m.films.slice().sort(function (a, b) { return (a.watched ? 1 : 0) - (b.watched ? 1 : 0); }).forEach(function (f) { listEl.append(filmRow(f)); });
       const addTitle = h("input", { class: "media-add", placeholder: "+ фільм / серіал…" });
-      const addYear = h("input", { class: "media-year", type: "number", placeholder: "рік" });
-      function addFilm() { const t = addTitle.value.trim(); if (!t) return; m.films.push({ id: uid("f"), title: t, year: parseInt(addYear.value, 10) || undefined, watched: false }); addTitle.value = ""; addYear.value = ""; save(); renderFilms(); }
+      function addFilm() { const t = addTitle.value.trim(); if (!t) return; m.films.push({ id: uid("f"), title: t, watched: false }); addTitle.value = ""; save(); renderFilms(); }
       addTitle.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); addFilm(); } });
 
       const pool = App.data.filmRecs || [];
@@ -77,8 +73,9 @@ App.modules.media = (function () {
             h("button", {
               class: "btn small", title: "Додати у «хочу подивитись»",
               onclick: function () {
-                if (m.films.some(function (x) { return (x.title || "").toLowerCase() === r.title.toLowerCase() && (x.year || 0) === (r.year || 0); })) { App.ui.toast("Уже в списку", "info"); return; }
-                m.films.push({ id: uid("f"), title: r.title, year: r.year, watched: false }); save(); App.ui.toast("Додано ✓"); renderFilms();
+                const full = r.title + (r.year ? " (" + r.year + ")" : "");
+                if (m.films.some(function (x) { return (x.title || "").toLowerCase() === full.toLowerCase(); })) { App.ui.toast("Уже в списку", "info"); return; }
+                m.films.push({ id: uid("f"), title: full, watched: false }); save(); App.ui.toast("Додано ✓"); renderFilms();
               },
             }, "+ у список")));
         }
@@ -88,7 +85,7 @@ App.modules.media = (function () {
         h("div", { class: "card fade-in" },
           h("h2", null, "🎬 Хочу подивитись"),
           m.films.length ? listEl : h("div", { class: "muted small" }, "Порожньо — додай нижче."),
-          h("div", { class: "row", style: "gap:8px;margin-top:10px" }, addTitle, addYear, h("button", { class: "btn green small", onclick: addFilm }, "Додати"))),
+          h("div", { class: "row", style: "gap:8px;margin-top:10px" }, addTitle, h("button", { class: "btn green small", onclick: addFilm }, "Додати"))),
         h("div", { class: "card fade-in" },
           h("div", { class: "row between", style: "margin-bottom:8px" },
             h("h2", { style: "margin:0" }, "✨ Рекомендації тижня"),
