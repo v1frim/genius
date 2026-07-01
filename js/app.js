@@ -14,6 +14,7 @@
     App.modules.charisma,
     App.modules.chess,
     App.modules.goals,
+    App.modules.notes,
     App.modules.settings,
   ];
 

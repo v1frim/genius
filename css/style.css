@@ -849,3 +849,14 @@ a.yt-title:hover { text-decoration: underline; }
 .linklike:hover { text-decoration: underline; }
 .med-vid.med-edit { background: rgba(255, 255, 255, 0.03); border-radius: 8px; }
 .med-vid.med-edit input[type="text"], .med-vid.med-edit input[type="number"] { padding: 6px 8px; }
+
+/* ---------- Записник ---------- */
+.notes-cat-name { flex: 1 1 auto; min-width: 0; font-weight: 800; font-size: 1.05rem; background: transparent; border: none; border-bottom: 1px solid transparent; color: var(--text); padding: 4px 2px; }
+.notes-cat-name:focus { outline: none; border-bottom-color: var(--primary); }
+.notes-items { display: flex; flex-direction: column; gap: 2px; }
+.notes-item { display: flex; align-items: center; gap: 8px; }
+.notes-item-text { flex: 1 1 auto; min-width: 0; background: transparent; border: none; color: var(--text); font-size: 0.95rem; padding: 6px 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.notes-item-text:focus { outline: none; border-bottom-color: var(--primary); }
+.notes-item-text.done { text-decoration: line-through; color: var(--muted); }
+.notes-add { flex: 1 1 auto; min-width: 0; padding: 8px 10px; background: var(--panel2); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; color: var(--text); }
+.notes-add:focus { outline: none; border-color: var(--primary); }
