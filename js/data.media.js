@@ -1,17 +1,17 @@
-/* Медіа: стартові дані для вкладки 🎬 (фільми, книги, фрази) + добірка рекомендацій фільмів.
+/* Медіа: стартові дані вкладки 🎬 (фільми, книги, фрази) + пул рекомендацій фільмів.
    Сідаються одноразово в state.media (прапор media.init); далі користувач редагує.
-   filmRecs — пул для щотижневої ротації рекомендацій (7/тиждень). Доливати батчами. */
+   filmRecs — пул для щотижневої ротації (7/тиждень); {title, year}. Доливати батчами. */
 window.App = window.App || {};
 App.data = App.data || {};
 
 App.data.defaultMedia = {
   films: [
-    { id: "f0", title: "Майкл 2025", watched: false },
-    { id: "f1", title: "Дедпул 3", watched: false },
-    { id: "f2", title: "Серіал «Извне»", watched: false },
-    { id: "f3", title: "Паразити", watched: false },
-    { id: "f4", title: "Двойник (2013)", watched: false },
-    { id: "f5", title: "Американська історія жахів", watched: false },
+    { id: "f0", title: "Майкл", year: 2025, watched: false },
+    { id: "f1", title: "Дедпул 3", year: 2024, watched: false },
+    { id: "f2", title: "Серіал «Извне»", year: 2022, watched: false },
+    { id: "f3", title: "Паразити", year: 2019, watched: false },
+    { id: "f4", title: "Двойник", year: 2013, watched: false },
+    { id: "f5", title: "Американська історія жахів", year: 2011, watched: false },
   ],
   books: [
     { id: "b0", title: "Дейв Керпен — «Геній комунікації»", read: false },
@@ -338,32 +338,32 @@ App.data.defaultMedia = {
 };
 
 App.data.filmRecs = [
-  "Опенгеймер",
-  "Дюна: частина друга",
-  "Все, всюди і водночас",
-  "Бійцівський клуб",
-  "Початок (Inception)",
-  "Інтерстеллар",
-  "Джентльмени",
-  "Джокер",
-  "Гладіатор",
-  "Прибуття (Arrival)",
-  "Пуститися берега (Breaking Bad)",
-  "Чорнобиль (серіал)",
-  "Спадкоємці (Succession)",
-  "Пацани (The Boys)",
-  "Останні з нас (The Last of Us)",
-  "Ведмідь (The Bear)",
-  "Мандалорець",
-  "Темний лицар",
-  "Втеча з Шоушенка",
-  "Зелена миля",
-  "Форрест Гамп",
-  "Ла-Ла Ленд",
-  "Матриця",
-  "Список Шиндлера",
-  "Достукатися до небес",
-  "Далекий космос (Foundation)",
-  "Пуститися берега: Кроти (Better Call Saul)",
-  "Шеrlock (BBC)",
+  { title: "Опенгеймер", year: 2023 },
+  { title: "Дюна: частина друга", year: 2024 },
+  { title: "Все, всюди і водночас", year: 2022 },
+  { title: "Бійцівський клуб", year: 1999 },
+  { title: "Початок (Inception)", year: 2010 },
+  { title: "Інтерстеллар", year: 2014 },
+  { title: "Джентльмени", year: 2019 },
+  { title: "Джокер", year: 2019 },
+  { title: "Гладіатор", year: 2000 },
+  { title: "Прибуття (Arrival)", year: 2016 },
+  { title: "Пуститися берега (Breaking Bad)", year: 2008 },
+  { title: "Чорнобиль", year: 2019 },
+  { title: "Спадкоємці (Succession)", year: 2018 },
+  { title: "Пацани (The Boys)", year: 2019 },
+  { title: "Останні з нас (The Last of Us)", year: 2023 },
+  { title: "Ведмідь (The Bear)", year: 2022 },
+  { title: "Мандалорець", year: 2019 },
+  { title: "Темний лицар", year: 2008 },
+  { title: "Втеча з Шоушенка", year: 1994 },
+  { title: "Зелена миля", year: 1999 },
+  { title: "Форрест Гамп", year: 1994 },
+  { title: "Ла-Ла Ленд", year: 2016 },
+  { title: "Матриця", year: 1999 },
+  { title: "Список Шиндлера", year: 1993 },
+  { title: "Достукатися до небес", year: 1997 },
+  { title: "Далекий космос (Foundation)", year: 2021 },
+  { title: "Пуститися берега: Кроти (Better Call Saul)", year: 2015 },
+  { title: "Шерлок (BBC)", year: 2010 },
 ];
