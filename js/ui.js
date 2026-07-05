@@ -145,6 +145,7 @@ App.ui = (function () {
   function beep(freq, durMs, vol) {
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended' && audioCtx.resume) audioCtx.resume(); // iOS: розбудити контекст
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.frequency.value = freq || 440;
