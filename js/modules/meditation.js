@@ -80,7 +80,7 @@ App.modules.meditation = (function () {
       circle.style.transitionDuration = phases[phaseIdx] + "s";
       circle.style.transform = "scale(" + PHASE_SCALE[phaseIdx] + ")";
       circle.textContent = String(phaseLeft);
-      if (soundOn) App.ui.beep(phaseIdx === 0 ? 392 : phaseIdx === 2 ? 262 : 330, 140, 0.05);
+      if (soundOn) App.ui.beep(phaseIdx === 0 ? 392 : phaseIdx === 2 ? 262 : 330, 200, 0.3);
     }
 
     function pacerTick() {
