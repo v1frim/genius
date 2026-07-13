@@ -13,7 +13,7 @@ App.modules.media = (function () {
     return 1 + Math.round((t - new Date(t.getFullYear(), 0, 4)) / 604800000);
   }
   function autogrow(ta) { ta.style.height = "auto"; ta.style.height = (ta.scrollHeight + 2) + "px"; }
-  const MEDIA_META_V = 1; // бампати, коли додаємо нові дані (напр. роки) до стартової добірки
+  const MEDIA_META_V = 2; // бампати, коли додаємо нові дані (роки, нові фрази) до стартової добірки
 
   function render(root) {
     const st = App.store.state;
@@ -30,10 +30,16 @@ App.modules.media = (function () {
     m.films = m.films || []; m.books = m.books || []; m.phrases = m.phrases || [];
     m.phrasesTotalDone = m.phrasesTotalDone || 0;
     if (!Array.isArray(m.phrasesDoneIds)) { m.phrasesDoneIds = []; changed = true; }
-    if (m.mediaMetaV !== MEDIA_META_V) { // донести роки на наявні фільми за id
+    if (m.mediaMetaV !== MEDIA_META_V) { // донести нові стартові дані на наявний стан
       (App.data.defaultMedia && App.data.defaultMedia.films || []).forEach(function (dd) {
         const f = m.films.find(function (x) { return x.id === dd.id; });
         if (f && !f.year && dd.year) f.year = dd.year;
+      });
+      // v2: долити нові фрази з добірки (за id; видалені вручну не нав'язуються повторно)
+      const have = {};
+      m.phrases.forEach(function (p) { have[p.id] = true; });
+      (App.data.defaultMedia && App.data.defaultMedia.phrases || []).forEach(function (dp) {
+        if (!have[dp.id] && (!m.mediaMetaV || m.mediaMetaV < 2)) m.phrases.push({ id: dp.id, text: dp.text });
       });
       m.mediaMetaV = MEDIA_META_V; changed = true;
     }
