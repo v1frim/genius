@@ -245,14 +245,14 @@ App.data.typingEN = [
 /* Канал @alexanderbaranovsky (externalId UCewkqzMpCq6oiHWxV8kDiMA).
    title/min користувач уточнює в UI; min=0 — поки не задано. Сідається одноразово (прапор medVideosInit). */
 App.data.defaultMedVideos = [
-  { id: "J5ADErtnbJU", title: "Медитация осознанности — Здесь и сейчас", url: "https://www.youtube.com/watch?v=J5ADErtnbJU&t=558s", min: 23, plays: 0, last: null, fav: false, prog: 0 },
+  { id: "J5ADErtnbJU", title: "Медитация осознанности — Здесь и сейчас", url: "https://www.youtube.com/watch?v=J5ADErtnbJU", min: 23, plays: 0, last: null, fav: false, prog: 0 },
   { id: "BGKlr7mQXHQ", title: "Практика осознанности — Mindfulness медитация", url: "https://www.youtube.com/watch?v=BGKlr7mQXHQ", min: 17, plays: 0, last: null, fav: false, prog: 0 },
-  { id: "uSeBERteJWo", title: "Исцеление себя — медитация самопомощи", url: "https://www.youtube.com/watch?v=uSeBERteJWo&t=1419s", min: 26, plays: 0, last: null, fav: false, prog: 0 },
-  { id: "a6u64zBf7UY", title: "Осознанность — Здесь и сейчас", url: "https://www.youtube.com/watch?v=a6u64zBf7UY&t=346s", min: 27, plays: 0, last: null, fav: false, prog: 0 },
-  { id: "bjhUJJWvlqM", title: "Очищение от тревожности — медитация", url: "https://www.youtube.com/watch?v=bjhUJJWvlqM&t=1036s", min: 20, plays: 0, last: null, fav: false, prog: 0 },
+  { id: "uSeBERteJWo", title: "Исцеление себя — медитация самопомощи", url: "https://www.youtube.com/watch?v=uSeBERteJWo", min: 26, plays: 0, last: null, fav: false, prog: 0 },
+  { id: "a6u64zBf7UY", title: "Осознанность — Здесь и сейчас", url: "https://www.youtube.com/watch?v=a6u64zBf7UY", min: 27, plays: 0, last: null, fav: false, prog: 0 },
+  { id: "bjhUJJWvlqM", title: "Очищение от тревожности — медитация", url: "https://www.youtube.com/watch?v=bjhUJJWvlqM", min: 20, plays: 0, last: null, fav: false, prog: 0 },
   { id: "YMJodW3ArC8", title: "Альфа-медитация для глубокого расслабления и сна", url: "https://www.youtube.com/watch?v=YMJodW3ArC8", min: 21, plays: 0, last: null, fav: false, prog: 0 },
   { id: "_16rU5mqLcM", title: "Медитация для снятия стресса — полное расслабление", url: "https://www.youtube.com/watch?v=_16rU5mqLcM", min: 20, plays: 0, last: null, fav: false, prog: 0 },
-  { id: "u_d23K_-v1Q", title: "Max Richter — On the Nature of Daylight (1 час)", url: "https://www.youtube.com/watch?v=u_d23K_-v1Q&t=1696s", min: 62, plays: 0, last: null, fav: false, prog: 0 },
+  { id: "u_d23K_-v1Q", title: "Max Richter — On the Nature of Daylight (1 час)", url: "https://www.youtube.com/watch?v=u_d23K_-v1Q", min: 62, plays: 0, last: null, fav: false, prog: 0 },
 ];
 
 /* ---------- тексти для швидкочитання ---------- */

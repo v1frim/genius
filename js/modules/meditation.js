@@ -14,6 +14,13 @@ App.modules.meditation = (function () {
   const PHASE_NAMES = ["Вдих", "Затримка", "Видих", "Затримка"];
   const PHASE_SCALE = [1.6, 1.6, 1.0, 1.0];
 
+  /* прибрати мітку часу з YouTube-лінка (t=558s, start=120 тощо) — відео завжди з 0:00 */
+  function stripTimestamp(url) {
+    return (url || "").replace(/[?&](t|start|time_continue)=[^&#]*/g, function (m) {
+      return m.charAt(0) === "?" ? "?" : "";
+    }).replace(/\?&/, "?").replace(/\?(#|$)/, "$1");
+  }
+
   function render(root) {
     let presetId = App.store.pref("med.preset", "box");
     let customPhases = App.store.pref("med.custom", [4, 4, 6, 2]);
@@ -35,7 +42,7 @@ App.modules.meditation = (function () {
 
     /* Одноразово (за версією) вписати реальні назви/тривалості з defaultMedVideos у наявні відео,
        НЕ чіпаючи ті, що користувач уже перейменував або яким задав тривалість. */
-    const MED_META_V = 2; // бампати, коли додаємо реальні дані для ще якихось відео
+    const MED_META_V = 3; // бампати, коли додаємо реальні дані для ще якихось відео
     if (st.medVideoMetaV !== MED_META_V) {
       (App.data.defaultMedVideos || []).forEach(function (d) {
         if (!(d.min > 0 || !/^Медитація \d+$/.test(d.title || ""))) return; // лише ті, де є реальні дані
@@ -44,6 +51,8 @@ App.modules.meditation = (function () {
         if (/^(Медитація|Відео) \d+$/.test(v.title || "")) v.title = d.title; // лише незаймані плейсхолдери
         if (!v.min) v.min = d.min;
       });
+      // v3: прибрати мітки часу з усіх збережених лінків — відео мають відкриватися з 0:00
+      st.medVideos.forEach(function (v) { if (v.url) v.url = stripTimestamp(v.url); });
       st.medVideoMetaV = MED_META_V;
       App.store.save();
     }
@@ -198,7 +207,7 @@ App.modules.meditation = (function () {
     let addShown = false; // чи показана форма додавання внизу
 
     function openUrl(url) {
-      const a = h("a", { href: url, target: "_blank", rel: "noopener" });
+      const a = h("a", { href: stripTimestamp(url), target: "_blank", rel: "noopener" });
       document.body.appendChild(a); a.click(); a.remove();
     }
     function parseVidId(url) {
@@ -225,7 +234,7 @@ App.modules.meditation = (function () {
 
     /* зберегти редагування (v) або нове відео (v=null) */
     function commit(v, url, title, minutes) {
-      url = (url || "").trim(); title = (title || "").trim();
+      url = stripTimestamp((url || "").trim()); title = (title || "").trim();
       const min = Math.max(0, parseInt(minutes, 10) || 0);
       if (!url) { App.ui.toast("Встав посилання на відео", "info"); return; }
       if (v) {
