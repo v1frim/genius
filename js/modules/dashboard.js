@@ -176,7 +176,10 @@ App.modules.dashboard = (function () {
     const sch = s.records("schulte").filter(function (r) { return r.size === 5 && r.mode === ""; });
     if (sch.length) {
       let best = null;
-      sch.forEach(function (r) { if (best === null || r.timeMs < best) best = r.timeMs; });
+      sch.forEach(function (r) {                       // штраф 1 с за помилку — як у Шульте
+        const sc = (r.timeMs || 0) + (r.errors || 0) * 1000;
+        if (best === null || sc < best) best = sc;
+      });
       items.push({ ico: "🔢", title: "Шульте 5×5", sub: "рекорд " + App.ui.fmtMs(best), href: "#/schulte" });
     } else items.push({ ico: "🔢", title: "Шульте", sub: "почни з 5×5", href: "#/schulte" });
 

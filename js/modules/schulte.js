@@ -44,8 +44,15 @@ App.modules.schulte = (function () {
 
   function evaluate(size, ms) { return evalSec(eliteSec(size), ms); }
 
+  /* Штраф за помилки: 1 помилка = +1 секунда до результату.
+     У записі зберігаємо ЧИСТИЙ час (timeMs) і кількість помилок, а результат (score) —
+     завжди рахуємо на льоту. Так штраф однаково діє й на старі записи, без міграції. */
+  const ERR_PENALTY_MS = 1000;
+  function scoreOf(r) { return (r.timeMs || 0) + (r.errors || 0) * ERR_PENALTY_MS; }
+
   function evaluateRec(r) {
-    return r.marathon ? evalSec(MARATHON_ELITE * r.games, r.timeMs) : evaluate(r.size, r.timeMs);
+    const sc = scoreOf(r);
+    return r.marathon ? evalSec(MARATHON_ELITE * r.games, sc) : evaluate(r.size, sc);
   }
 
   /* орієнтири часу (стовпчиком, кожен рівень своїм кольором) */
@@ -164,7 +171,7 @@ App.modules.schulte = (function () {
     function updateInfo() {
       nextEl.textContent = running ? "шукай: " + seq[seqIdx] : "—";
       if (!opts.hint) nextEl.textContent = running ? "🙈" : "—";
-      errEl.textContent = errors ? "помилок: " + errors : "";
+      errEl.textContent = errors ? "помилок: " + errors + " (+" + errors + " с)" : "";
       if (marathon) {
         marathonEl.style.display = "";
         marathonEl.textContent = "🏁 " + size + "×" + size + " · гра " + marathon.game + "/" + marathon.games;
@@ -179,7 +186,7 @@ App.modules.schulte = (function () {
     function bestAnyMode(sz) {
       let best = null;
       App.store.records("schulte").forEach(function (r) {
-        if (!r.marathon && r.size === sz && (best === null || r.timeMs < best)) best = r.timeMs;
+        if (!r.marathon && r.size === sz) { const sc = scoreOf(r); if (best === null || sc < best) best = sc; }
       });
       return best;
     }
@@ -202,6 +209,11 @@ App.modules.schulte = (function () {
       todayEl.textContent = "🕐 сьогодні в Шульте: " + App.ui.fmtClock(ms / 1000);
     }
 
+    /* показ таймера = чистий час + штраф за помилки (тому клік мимо одразу додає секунду) */
+    function tick() {
+      timerEl.textContent = App.ui.fmtMs(performance.now() - startTs + errors * ERR_PENALTY_MS);
+    }
+
     /* запуск одного раунду на поточному розмірі */
     function startRound() {
       stopTimer();
@@ -213,9 +225,7 @@ App.modules.schulte = (function () {
       errors = 0;
       running = true;
       startTs = performance.now();
-      timerInt = setInterval(function () {
-        timerEl.textContent = App.ui.fmtMs(performance.now() - startTs);
-      }, 47);
+      timerInt = setInterval(tick, 47);
       showOverlay(null);
       updateInfo();
       stopBtn.style.display = "";
@@ -249,21 +259,22 @@ App.modules.schulte = (function () {
     function finish() {
       running = false;
       stopTimer();
-      const ms = performance.now() - startTs;
+      const rawMs = performance.now() - startTs;   // чистий час — він іде в облік зіграного
+      const ms = rawMs + errors * ERR_PENALTY_MS;  // результат зі штрафом
       timerEl.textContent = App.ui.fmtMs(ms);
-      if (marathon) { finishMarathonGame(ms); return; }
+      if (marathon) { finishMarathonGame(rawMs, ms); return; }
       stopBtn.style.display = "none";
       const mode = modeKey(opts);
       const prevBest = bestFor(size, mode);
-      App.store.addTime("schulte", ms);
-      App.store.addRecord("schulte", { size: size, mode: mode, timeMs: Math.round(ms), errors: errors });
+      App.store.addTime("schulte", rawMs);
+      App.store.addRecord("schulte", { size: size, mode: mode, timeMs: Math.round(rawMs), errors: errors });
       const isRecord = prevBest === null || ms < prevBest;
       if (isRecord) App.ui.toast("🏆 Новий рекорд " + size + "×" + size + ": " + App.ui.fmtMs(ms));
       const ev = evaluate(size, ms);
       showOverlay([
         h("div", { class: "big-num" }, App.ui.fmtMs(ms)),
         h("div", { class: ev.cls, style: "font-weight:800;font-size:1.1rem" }, ev.text),
-        errors ? h("div", { class: "muted" }, "Помилок: " + errors) : null,
+        errors ? h("div", { class: "muted" }, "Помилок: " + errors + " · чистий час " + App.ui.fmtMs(rawMs) + " +" + errors + " с штрафу") : null,
         isRecord ? h("div", { class: "yellow", style: "font-weight:900" }, "🏆 Особистий рекорд!") : null,
         h("button", { class: "btn green big", onclick: start }, "ЗАНОВО"),
       ]);
@@ -272,10 +283,10 @@ App.modules.schulte = (function () {
     }
 
     /* завершення однієї гри марафону: гра зараховується окремим записом */
-    function finishMarathonGame(ms) {
+    function finishMarathonGame(rawMs, ms) {
       const mode = modeKey(opts);
-      App.store.addTime("schulte", ms);
-      App.store.addRecord("schulte", { size: size, mode: mode, timeMs: Math.round(ms), errors: errors, mar: true });
+      App.store.addTime("schulte", rawMs);
+      App.store.addRecord("schulte", { size: size, mode: mode, timeMs: Math.round(rawMs), errors: errors, mar: true });
       marathon.totalMs += ms;
       marathon.totalErrors += errors;
       marathon.done = (marathon.done || 0) + 1;
@@ -345,6 +356,7 @@ App.modules.schulte = (function () {
         errors++;
         cell.btn.classList.add("flash-err");
         setTimeout(function () { cell.btn.classList.remove("flash-err"); }, 220);
+        tick(); // секунда штрафу видно на таймері одразу
         updateInfo();
       }
     }
@@ -353,7 +365,8 @@ App.modules.schulte = (function () {
       let best = null;
       App.store.records("schulte").forEach(function (r) {
         if (!r.marathon && r.size === sz && (r.mode || "") === mode) {
-          if (best === null || r.timeMs < best) best = r.timeMs;
+          const sc = scoreOf(r);
+          if (best === null || sc < best) best = sc;
         }
       });
       return best;
@@ -435,7 +448,8 @@ App.modules.schulte = (function () {
           optToggle("marathon", "Марафон 3×3 → 7×7", "Проходиш усі розміри по черзі, по N ігор на кожному. Кожна гра зараховується окремо; наприкінці — сумарний час."),
           marathonRow),
         h("div", { class: "tiny muted", style: "margin-top:10px" },
-          "Shift лівий / правий — наступний / попередній розмір · Space — старт")));
+          "Shift лівий / правий — наступний / попередній розмір · Space — старт",
+          h("div", { style: "margin-top:4px" }, "⚠️ Помилка = +1 секунда до результату"))));
 
       // позначаємо ігри, що були особистим рекордом на момент гри (для свого розміру+режиму)
       const allRecs = App.store.records("schulte");
@@ -444,7 +458,8 @@ App.modules.schulte = (function () {
       allRecs.forEach(function (r) {
         const key = r.marathon ? ("M" + r.games + ":" + (r.mode || "")) : (r.size + ":" + (r.mode || ""));
         const prev = bestSoFar[key];
-        if (prev === undefined || r.timeMs < prev) { bestSoFar[key] = r.timeMs; recordSet.add(r); }
+        const sc = scoreOf(r);
+        if (prev === undefined || sc < prev) { bestSoFar[key] = sc; recordSet.add(r); }
       });
 
       const recent = allRecs.slice(-9).reverse();
@@ -460,7 +475,10 @@ App.modules.schulte = (function () {
           return h("tr", null,
             h("td", { class: isRec ? "yellow" : "", style: isRec ? "font-weight:900" : "", title: isRec ? "Особистий рекорд на момент гри" : "" }, sizeCell),
             h("td", { title: (r.marathon ? "марафон ×" + r.games + " · " : r.mar ? "марафон · " : "") + modeLabel(r.mode || "") }, modeCell),
-            h("td", { class: evaluateRec(r).cls, style: "font-weight:800" }, App.ui.fmtMs(r.timeMs)),
+            h("td", {
+              class: evaluateRec(r).cls, style: "font-weight:800",
+              title: r.errors ? "чистий час " + App.ui.fmtMs(r.timeMs) + " + " + r.errors + " с штрафу за помилки" : "",
+            }, App.ui.fmtMs(scoreOf(r))),
             h("td", null, String(r.errors)),
             h("td", null, App.ui.fmtDate(r.date)));
         }));
