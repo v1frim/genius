@@ -57,8 +57,12 @@ App.modules.typing = (function () {
     let spans = [];
     let typedState = [];   // на кожен індекс: "ok" | "wrong" | null
     let pos = 0;           // індекс наступного символу (курсор)
-    let totalKeys = 0;     // усі натискання друкованих клавіш
+    let totalKeys = 0;     // натискання, що йдуть у статистику (див. wrongPending)
     let wrongKeys = 0;     // помилкові натискання (для точності)
+    /* Скільки невиправлених помилок лишилось позаду курсора. Поки їх >0, наступні
+       натискання НЕ йдуть у статистику: користувач друкує «за інерцією», ще не помітивши
+       червону літеру. Помилка рахується один раз — доки її не зітруть ⌫ і не наберуть вірно. */
+    let wrongPending = 0;
     let started = false;
     let finished = false;
     let statInt = null;
@@ -106,7 +110,7 @@ App.modules.typing = (function () {
       }
       chars = Array.from(text);
       typedState = chars.map(function () { return null; });
-      pos = 0; totalKeys = 0; wrongKeys = 0; started = false; finished = false;
+      pos = 0; totalKeys = 0; wrongKeys = 0; wrongPending = 0; started = false; finished = false;
       accumMs = 0; runStart = 0;
       resultBox.innerHTML = "";
       cpmEl.textContent = "0"; accEl.textContent = "100%"; errEl.textContent = "0";
@@ -142,7 +146,8 @@ App.modules.typing = (function () {
       const m = Math.max(elapsedMs() / 60000, 1 / 60);
       cpmEl.textContent = String(Math.round(correctCount() / m));
       accEl.textContent = totalKeys ? Math.round((totalKeys - wrongKeys) / totalKeys * 100) + "%" : "100%";
-      errEl.textContent = String(wrongKeys);
+      errEl.textContent = wrongPending ? wrongKeys + " ⌫" : String(wrongKeys); // ⌫ = є що виправити
+      errEl.classList.toggle("danger-text", wrongPending > 0);
       progFill.style.width = (pos / chars.length * 100) + "%";
     }
 
@@ -157,9 +162,12 @@ App.modules.typing = (function () {
       if (finished) return;
       if (pos >= chars.length) { hintFix(); return; } // дійшов до кінця з помилками — треба виправити
       if (!started) { started = true; focused = true; runStart = performance.now(); }
-      totalKeys++;
       const ok = matches(ch, chars[pos]);
-      if (!ok) wrongKeys++;
+      if (!wrongPending) {          // є невиправлена помилка → набране «за інерцією» не рахуємо
+        totalKeys++;
+        if (!ok) wrongKeys++;
+      }
+      if (!ok) wrongPending++;
       typedState[pos] = ok ? "ok" : "wrong";
       spans[pos].classList.remove("cur");
       spans[pos].classList.add(ok ? "ok" : "wrong");
@@ -179,6 +187,7 @@ App.modules.typing = (function () {
       if (finished || pos <= 0) return;
       if (pos < chars.length) spans[pos].classList.remove("cur");
       pos--;
+      if (typedState[pos] === "wrong" && wrongPending > 0) wrongPending--;
       typedState[pos] = null;
       spans[pos].classList.remove("ok", "wrong");
       spans[pos].classList.add("cur");
@@ -363,7 +372,7 @@ App.modules.typing = (function () {
         textBox,
         resultBox,
         h("div", { class: "tiny muted", style: "margin-top:10px" },
-          "Клік по тексту — і друкуй. «ґ» зараховує й «г»; довге тире — і апостроф ' приймаються спрощено. Курсор поза текстом — таймер на паузі.")),
+          "Клік по тексту — і друкуй. «ґ» зараховує й «г»; довге тире — і апостроф ' приймаються спрощено. Курсор поза текстом — таймер на паузі. Помилка рахується ОДИН раз: поки червона літера не виправлена ⌫, набране далі «за інерцією» в статистику не йде.")),
       recordsBox);
 
     newText();
