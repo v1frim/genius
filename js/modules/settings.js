@@ -37,7 +37,7 @@ App.modules.settings = (function () {
       }
     }
     const syncCard = h("div", { class: "card fade-in" },
-      h("h2", null, "☁️ Синхронізація між пристроями ", h("span", { class: "tiny muted" }, "(складання 6)")),
+      h("h2", null, "☁️ Синхронізація між пристроями"),
       syncBody);
     if (App.sync) App.sync.onStatus(renderSync); else renderSync({ available: false });
 
