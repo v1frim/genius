@@ -13,7 +13,18 @@ App.modules.media = (function () {
     return 1 + Math.round((t - new Date(t.getFullYear(), 0, 4)) / 604800000);
   }
   function autogrow(ta) { ta.style.height = "auto"; ta.style.height = (ta.scrollHeight + 2) + "px"; }
-  const MEDIA_META_V = 2; // бампати, коли додаємо нові дані (роки, нові фрази) до стартової добірки
+  const MEDIA_META_V = 3; // бампати, коли додаємо нові дані (роки, нові фрази) до стартової добірки
+  /* «Водяний знак» добірки фраз: найбільший НОМЕР стартового id (p123), який уже доливали.
+     Долити новий батч = дописати фрази в data.media.js + бампнути MEDIA_META_V; сюди нічого
+     правити не треба. Завдяки цьому нові фрази приходять, а ВИДАЛЕНІ вручну не воскресають.
+     Межі нижче — лише для разового апгрейду станів, збережених до появи водяного знака. */
+  const SEEDED_BEFORE_V2 = 249; // стани на mediaMetaV<2 мали p0…p249
+  const SEEDED_BEFORE_V3 = 321; // стани на mediaMetaV=2 мали p0…p321
+  function phraseNum(id) { const m = /^p(\d+)$/.exec(id || ""); return m ? +m[1] : -1; }
+  function maxDefaultPhraseNum() {
+    return (App.data.defaultMedia && App.data.defaultMedia.phrases || [])
+      .reduce(function (mx, p) { return Math.max(mx, phraseNum(p.id)); }, -1);
+  }
 
   function render(root) {
     const st = App.store.state;
@@ -25,6 +36,7 @@ App.modules.media = (function () {
       m.films = JSON.parse(JSON.stringify(d.films || []));
       m.books = JSON.parse(JSON.stringify(d.books || []));
       m.phrases = JSON.parse(JSON.stringify(d.phrases || []));
+      m.phrasesSeededMax = maxDefaultPhraseNum(); // свіжий старт — уся добірка вже на руках
       m.init = true; changed = true;
     }
     m.films = m.films || []; m.books = m.books || []; m.phrases = m.phrases || [];
@@ -35,12 +47,16 @@ App.modules.media = (function () {
         const f = m.films.find(function (x) { return x.id === dd.id; });
         if (f && !f.year && dd.year) f.year = dd.year;
       });
-      // v2: долити нові фрази з добірки (за id; видалені вручну не нав'язуються повторно)
+      // долити лише НОВІ фрази добірки (за водяним знаком) — видалені вручну не повертаються
+      if (typeof m.phrasesSeededMax !== "number") {
+        m.phrasesSeededMax = (m.mediaMetaV >= 2) ? SEEDED_BEFORE_V3 : SEEDED_BEFORE_V2;
+      }
       const have = {};
       m.phrases.forEach(function (p) { have[p.id] = true; });
       (App.data.defaultMedia && App.data.defaultMedia.phrases || []).forEach(function (dp) {
-        if (!have[dp.id] && (!m.mediaMetaV || m.mediaMetaV < 2)) m.phrases.push({ id: dp.id, text: dp.text });
+        if (phraseNum(dp.id) > m.phrasesSeededMax && !have[dp.id]) m.phrases.push({ id: dp.id, text: dp.text });
       });
+      m.phrasesSeededMax = Math.max(m.phrasesSeededMax, maxDefaultPhraseNum());
       m.mediaMetaV = MEDIA_META_V; changed = true;
     }
     if (changed) App.store.save();
@@ -138,6 +154,33 @@ App.modules.media = (function () {
       const practiceBox = h("div");
       const manageBox = h("div", { style: "display:none;margin-top:10px" });
       let manageShown = false;
+      const countEl = h("div", { class: "val" }, String(m.phrases.length));       // «фраз у базі»
+      const manageBtn = h("button", {
+        class: "btn ghost small",
+        onclick: function () { manageShown = !manageShown; manageBox.style.display = manageShown ? "" : "none"; if (manageShown) renderManage(); },
+      }, "⚙️ Керувати фразами (" + m.phrases.length + ")");
+
+      /* лічильники оновлюємо на місці — щоб видалення не рвало відкриту сесію */
+      function refreshCounts() {
+        countEl.textContent = String(m.phrases.length);
+        manageBtn.textContent = "⚙️ Керувати фразами (" + m.phrases.length + ")";
+      }
+
+      /* видалити фразу з корпусу (і з сесії, якщо вона там) */
+      function deletePhrase(p) {
+        const i = m.phrases.indexOf(p);
+        if (i >= 0) m.phrases.splice(i, 1);
+        const txt = (p.text || "").trim();
+        App.ui.toast("🗑 Видалено: " + (txt.length > 40 ? txt.slice(0, 40) + "…" : txt || "(порожня фраза)"));
+        if (session) {
+          const j = session.phrases.indexOf(p);
+          if (j >= 0) session.phrases.splice(j, 1);
+          session.checked.delete(p.id);
+        }
+        save();
+        refreshCounts();
+        if (manageShown) renderManage();
+      }
 
       function renderSession() {
         practiceBox.innerHTML = "";
@@ -154,7 +197,17 @@ App.modules.media = (function () {
           textIn.addEventListener("input", function () { p.text = textIn.value; autogrow(textIn); }); // редагуємо корпус
           textIn.addEventListener("change", save);
           cb.addEventListener("change", function () { if (cb.checked) session.checked.add(p.id); else session.checked.delete(p.id); textIn.classList.toggle("done", cb.checked); zarBtn.disabled = session.checked.size < session.phrases.length; });
-          rows.append(h("div", { class: "phrase-row" }, cb, textIn));
+          const row = h("div", { class: "phrase-row" }, cb, textIn,
+            h("button", {
+              class: "btn-mini", title: "Видалити фразу з бази",
+              onclick: function () {
+                deletePhrase(p);
+                row.remove();
+                if (!session.phrases.length) { session = null; renderSession(); return; } // усе видалили — назад до старту
+                zarBtn.disabled = session.checked.size < session.phrases.length;
+              },
+            }, "✕"));
+          rows.append(row);
         });
         zarBtn.disabled = session.checked.size < session.phrases.length;
         practiceBox.append(rows,
@@ -189,7 +242,10 @@ App.modules.media = (function () {
           textIn.addEventListener("input", function () { p.text = textIn.value; autogrow(textIn); });
           textIn.addEventListener("change", save);
           const row = h("div", { class: "media-item phrase-manage-row" }, textIn,
-            h("button", { class: "btn-mini", title: "Видалити", onclick: function () { const i = m.phrases.indexOf(p); if (i >= 0) m.phrases.splice(i, 1); row.remove(); save(); } }, "✕"));
+            h("button", {
+              class: "btn-mini", title: "Видалити",
+              onclick: function () { row.remove(); deletePhrase(p); if (session) renderSession(); },
+            }, "✕"));
           list.append(row);
         });
         manageBox.append(h("div", { class: "row", style: "gap:8px;margin-bottom:8px" }, addIn, h("button", { class: "btn small", onclick: addPhrase }, "Додати")), list);
@@ -202,12 +258,10 @@ App.modules.media = (function () {
           h("div", { class: "stat-cards", style: "margin:10px 0" },
             App.ui.statCard(String(m.phrasesTotalDone || 0), "пройдено всього"),
             App.ui.statCard(String((m.phrasesDoneIds || []).length), "унікальних пройдено"),
-            App.ui.statCard(String(m.phrases.length), "фраз у базі")),
-          h("div", { class: "tiny muted", style: "margin-bottom:10px" }, "Відмічай усі 8 галочками — і сесія зарахується. Текст фрази можна тут-таки відредагувати."),
+            h("div", { class: "stat-card" }, countEl, h("div", { class: "lbl" }, "фраз у базі"))),
+          h("div", { class: "tiny muted", style: "margin-bottom:10px" }, "Відмічай усі 8 галочками — і сесія зарахується. Текст фрази можна тут-таки відредагувати, а ✕ — видалити її з бази назовсім."),
           practiceBox),
-        h("div", { class: "card fade-in" },
-          h("button", { class: "btn ghost small", onclick: function () { manageShown = !manageShown; manageBox.style.display = manageShown ? "" : "none"; if (manageShown) renderManage(); } }, "⚙️ Керувати фразами (" + m.phrases.length + ")"),
-          manageBox));
+        h("div", { class: "card fade-in" }, manageBtn, manageBox));
       renderSession();
     }
 

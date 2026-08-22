@@ -873,6 +873,7 @@ span.media-title { border-bottom: none; padding: 6px 0; }
 .phrase-list { display: flex; flex-direction: column; gap: 6px; }
 .phrase-row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 10px; background: var(--panel2); border-radius: 8px; cursor: pointer; }
 .phrase-row input { margin-top: 3px; flex-shrink: 0; }
+.phrase-row .btn-mini { flex-shrink: 0; margin-top: 1px; }
 .phrase-text { flex: 1; line-height: 1.4; }
 .phrase-text.done { color: var(--muted); text-decoration: line-through; }
 .phrase-manage { max-height: 360px; overflow-y: auto; margin-top: 4px; }
