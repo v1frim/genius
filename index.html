@@ -66,11 +66,47 @@
   <script src="js/sync.js"></script>
 
   <script>
-    /* Реєстрація service worker — робить сайт встановлюваним PWA та офлайновим */
+    /* Реєстрація service worker — робить сайт встановлюваним PWA та офлайновим.
+
+       АВТО-ОНОВЛЕННЯ (важливо для iOS): встановлений PWA часто НЕ перезавантажує
+       сторінку при відкритті — iOS віддає її з пам'яті, тож новий код з сайту не
+       з'являвся, поки застосунок не перевстановлять. Тому самі перевіряємо оновлення
+       щоразу, коли вкладка стає видимою, і перезавантажуємось, коли новий SW
+       перебрав керування. `updateViaCache:'none'` — щоб сам sw.js не брався з кешу. */
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('sw.js').catch(function (e) { console.warn('SW register failed', e); });
-      });
+      (function () {
+        var hadController = !!navigator.serviceWorker.controller; // false = перша установка
+        var reloading = false;
+        var lastCheck = 0;
+        var regPromise = null;
+
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          // перша установка SW (сторінка ще не була під його керуванням) — перезавантажувати
+          // нічого, код і так свіжий; але далі вже СЛІД перезавантажуватись
+          if (!hadController) { hadController = true; return; }
+          if (reloading) return;
+          reloading = true;
+          location.reload();
+        });
+
+        function checkUpdate() {
+          var now = Date.now();
+          if (now - lastCheck < 20000) return; // не частіше ніж раз на 20 с
+          lastCheck = now;
+          if (regPromise) regPromise.then(function (reg) { if (reg) reg.update().catch(function () {}); });
+        }
+        window.App = window.App || {};
+        App.checkForUpdate = function () { lastCheck = 0; checkUpdate(); };
+
+        window.addEventListener('load', function () {
+          regPromise = navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+            .catch(function (e) { console.warn('SW register failed', e); return null; });
+          checkUpdate();
+        });
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) checkUpdate(); });
+        window.addEventListener('pageshow', checkUpdate);
+        window.addEventListener('focus', checkUpdate);
+      })();
     }
   </script>
 </body>

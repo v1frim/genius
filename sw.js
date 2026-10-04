@@ -2,7 +2,7 @@
    Стратегія «спершу мережа»: коли є інтернет — завжди вантажиться найновіша
    версія з сайту, а кеш слугує лише запасним варіантом для офлайну. Тому при
    оновленні сайту застосунок на телефоні теж оновлюється сам. */
-const VERSION = 'genius-cache-v12';
+const VERSION = 'genius-cache-v13';
 const ASSETS = [
   '.', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/store.js', 'js/oxford.js', 'js/sync.js', 'js/ui.js', 'js/data.js', 'js/data.prose.js', 'js/data.twisters.js', 'js/data.passages.js', 'js/data.media.js',
@@ -30,6 +30,13 @@ self.addEventListener('activate', function (e) {
   })());
 });
 
+/* Застосунок може спитати версію (кнопка «Перевірити оновлення» в «Даних») */
+self.addEventListener('message', function (e) {
+  if (!e.data) return;
+  if (e.data.type === 'SKIP_WAITING') self.skipWaiting();
+  if (e.data.type === 'VERSION' && e.ports && e.ports[0]) e.ports[0].postMessage(VERSION);
+});
+
 self.addEventListener('fetch', function (e) {
   const req = e.request;
   if (req.method !== 'GET') return;
@@ -38,7 +45,10 @@ self.addEventListener('fetch', function (e) {
   e.respondWith((async function () {
     const cache = await caches.open(VERSION);
     try {
-      const res = await fetch(req);
+      // cache:'no-cache' — ЗАВЖДИ звіряємось із сервером (умовний запит; незмінений
+      // файл віддається як 304, тож трафіку майже немає). Без цього «спершу мережа»
+      // обманювало: fetch міг мовчки взяти старий файл із HTTP-кешу браузера.
+      const res = await fetch(new Request(url.href, { cache: 'no-cache', credentials: 'same-origin' }));
       if (res && res.ok) cache.put(req, res.clone());
       return res;
     } catch (err) {

@@ -41,11 +41,57 @@ App.modules.settings = (function () {
       syncBody);
     if (App.sync) App.sync.onStatus(renderSync); else renderSync({ available: false });
 
+    /* Оновлення застосунку — ручна перевірка (на iPhone встановлений PWA інколи
+       тримає стару версію, доки сам не перевіриш) */
+    const verEl = h("span", { class: "tiny muted" }, "версія: …");
+    (function askVersion(retry) {
+      if (!("serviceWorker" in navigator)) { verEl.textContent = "версія: без service worker"; return; }
+      if (!navigator.serviceWorker.controller) { // щойно встановлюється — дочекатись активації
+        if (retry) { verEl.textContent = "версія: ще встановлюється"; return; }
+        navigator.serviceWorker.ready.then(function () { askVersion(true); })
+          .catch(function () { verEl.textContent = "версія: невідома"; });
+        return;
+      }
+      try {
+        const ch = new MessageChannel();
+        ch.port1.onmessage = function (e) { verEl.textContent = "версія: " + e.data; };
+        navigator.serviceWorker.controller.postMessage({ type: "VERSION" }, [ch.port2]);
+      } catch (e) { verEl.textContent = "версія: невідома"; }
+    })();
+    const updateCard = h("div", { class: "card fade-in" },
+      h("h2", null, "🔄 Оновлення застосунку"),
+      h("div", { class: "muted small", style: "margin-bottom:10px" },
+        "Застосунок оновлюється сам, коли відкриваєш його онлайн. Якщо на телефоні видно стару версію — натисни тут."),
+      h("div", { class: "row", style: "gap:10px;align-items:center" },
+        h("button", {
+          class: "btn green",
+          onclick: function () {
+            if (!("serviceWorker" in navigator)) { App.ui.toast("Тут немає service worker", "info"); return; }
+            App.ui.toast("Перевіряю оновлення…", "info");
+            if (App.checkForUpdate) App.checkForUpdate();
+            // якщо новий SW уже чекає — пускаємо його й перезавантажуємось
+            navigator.serviceWorker.getRegistration().then(function (reg) {
+              if (!reg) { App.ui.toast("Service worker не зареєстровано", "info"); return; }
+              return reg.update().then(function () {
+                const w = reg.waiting || reg.installing;
+                if (w) { w.postMessage({ type: "SKIP_WAITING" }); App.ui.toast("Знайдено оновлення — перезавантажую…"); }
+                else { App.ui.toast("Уже найсвіжіша версія ✓"); }
+              });
+            }).catch(function () { App.ui.toast("Не вдалося перевірити (немає мережі?)", "info"); });
+          },
+        }, "Перевірити оновлення"),
+        h("button", {
+          class: "btn ghost small",
+          onclick: function () { location.reload(); },
+        }, "Перезавантажити"),
+        verEl));
+
     root.append(
       h("h1", { class: "page-title" }, "⚙️ Дані"),
       h("div", { class: "page-sub" }, "Прогрес зберігається локально (localStorage). Увімкни синхронізацію нижче — або періодично роби експорт."),
 
       syncCard,
+      updateCard,
 
       h("div", { class: "card fade-in" },
         h("h2", null, "Експорт"),
